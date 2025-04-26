@@ -51,11 +51,8 @@ func (e *Engine) Read(query []byte) (*litetable.Row, error) {
 	if len(parsed.qualifiers) == 0 {
 		// Copy all qualifiers and their values
 		for qualifier, values := range family {
-			if parsed.latest > 0 {
-				result.Columns[parsed.family][qualifier] = getLatestN(values, parsed.latest)
-			} else {
-				result.Columns[parsed.family][qualifier] = values
-			}
+			// Always use getLatestN - when parsed.latest is 0, it will return all values sorted
+			result.Columns[parsed.family][qualifier] = getLatestN(values, parsed.latest)
 		}
 	} else {
 		// Return only requested qualifiers
@@ -65,23 +62,17 @@ func (e *Engine) Read(query []byte) (*litetable.Row, error) {
 				continue // Skip non-existing qualifiers
 			}
 
-			if parsed.latest > 0 {
-				result.Columns[parsed.family][qualifier] = getLatestN(values, parsed.latest)
-			} else {
-				result.Columns[parsed.family][qualifier] = values
-			}
+			// Always use getLatestN - when parsed.latest is 0, it will return all values sorted
+			result.Columns[parsed.family][qualifier] = getLatestN(values, parsed.latest)
 		}
 	}
 
 	return result, nil
 }
 
-// getLatestN returns the n most recent timestamped values
+// getLatestN returns up to n most recent timestamped values
+// If n is 0, returns all values sorted by timestamp descending
 func getLatestN(values []litetable.TimestampedValue, n int) []litetable.TimestampedValue {
-	if len(values) <= n {
-		return values
-	}
-
 	// Create a copy to avoid modifying the original
 	valuesCopy := make([]litetable.TimestampedValue, len(values))
 	copy(valuesCopy, values)
@@ -91,7 +82,12 @@ func getLatestN(values []litetable.TimestampedValue, n int) []litetable.Timestam
 		return valuesCopy[i].Timestamp.After(valuesCopy[j].Timestamp)
 	})
 
-	// Return top N values
+	// If n is 0 or greater than the length, return all values
+	if n <= 0 || n >= len(valuesCopy) {
+		return valuesCopy
+	}
+
+	// Otherwise return the top n values
 	return valuesCopy[:n]
 }
 

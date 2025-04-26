@@ -37,19 +37,3 @@ type Row struct {
 	Key     string                        `json:"key"`
 	Columns map[string]VersionedQualifier `json:"cols"` // family → qualifier → []TimestampedValue
 }
-
-// GetLatest returns the most recent value for a qualifier
-func GetLatest(values []TimestampedValue) ([]byte, time.Time, bool) {
-	if len(values) == 0 {
-		return nil, time.Time{}, false
-	}
-
-	latest := values[0]
-	for _, v := range values {
-		if v.Timestamp.After(latest.Timestamp) {
-			latest = v
-		}
-	}
-
-	return latest.Value, latest.Timestamp, true
-}
