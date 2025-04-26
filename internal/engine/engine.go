@@ -51,13 +51,15 @@ func (e *Engine) Handle(conn net.Conn) {
 		return
 	}
 
+	// before processing any query, write to the WAL
+
 	// Always send a response for every operation type
 	switch msgType {
 	case protocol.Write:
-		fmt.Println("here", string(queryBytes))
+		fmt.Println(string(queryBytes))
 		_, err = conn.Write([]byte("WRITE_OK "))
 	case protocol.Read:
-		fmt.Println("here", string(queryBytes))
+		fmt.Println(string(queryBytes))
 		_, err = conn.Write([]byte("READ_OK data "))
 	case protocol.Delete:
 		_, err = conn.Write([]byte("DELETE_OK "))
