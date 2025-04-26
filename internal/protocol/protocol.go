@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	// Write requires an action to write to LiteTable
-	Write = iota
+	Unknown = iota
 	Read
+	Write
 	Delete
 )
 
@@ -22,25 +22,26 @@ type Message struct {
 	msg []byte
 }
 
-// Decode decodes a buffer into a liteserver protocol message
-func Decode(buf []byte) (int, error) {
-	// Decode the buffer into a protocol message
-	// This is a placeholder for actual decoding logic
-
-	// Check for READ (4 bytes)
-	if buf[0] == 'R' && buf[1] == 'E' && buf[2] == 'A' && buf[3] == 'D' {
-		return Read, nil
+// Decode decodes a buffer into a litetable protocol message type and returns the payload
+func Decode(buf []byte) (int, []byte, error) {
+	if len(buf) < 5 { // Minimum length for protocols
+		return Unknown, nil, ErrUnknown
 	}
 
-	// Check for WRITE (5 bytes)
-	if len(buf) >= 5 && buf[0] == 'W' && buf[1] == 'R' && buf[2] == 'I' && buf[3] == 'T' && buf[4] == 'E' {
-		return Write, nil
+	// Check for READ (4 bytes + space)
+	if buf[0] == 'R' && buf[1] == 'E' && buf[2] == 'A' && buf[3] == 'D' && buf[4] == ' ' {
+		return Read, buf[5:], nil
 	}
 
-	// Check for DELETE (6 bytes)
-	if len(buf) >= 6 && buf[0] == 'D' && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'E' && buf[4] == 'T' && buf[5] == 'E' {
-		return Delete, nil
+	// Check for WRITE (5 bytes + space)
+	if len(buf) >= 6 && buf[0] == 'W' && buf[1] == 'R' && buf[2] == 'I' && buf[3] == 'T' && buf[4] == 'E' && buf[5] == ' ' {
+		return Write, buf[6:], nil
 	}
 
-	return 0, ErrUnknown
+	// Check for DELETE (6 bytes + space)
+	if len(buf) >= 7 && buf[0] == 'D' && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'E' && buf[4] == 'T' && buf[5] == 'E' && buf[6] == ' ' {
+		return Delete, buf[7:], nil
+	}
+
+	return Unknown, nil, ErrUnknown
 }

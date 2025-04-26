@@ -101,12 +101,15 @@ func (s *Server) Start() error {
 					s.activeConns.Done()
 				}()
 
+				fmt.Printf("Handling connection from: %s\n", remoteAddr)
 				s.handler.Handle(conn)
 			}()
 		default:
 			// Max connections reached, reject the connection
 			_ = conn.Close()
+			fmt.Printf("Rejected connection from %s: max connections reached\n", remoteAddr)
 		}
+		// Remove this line: _ = conn.Close()
 	}
 }
 

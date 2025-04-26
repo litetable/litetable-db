@@ -23,45 +23,43 @@ func (e *Engine) Handle(conn net.Conn) {
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			// Handle error
-			return
+			fmt.Printf("Error closing connection: %v\n", err)
 		}
 	}()
 
 	buf, err := e.read(conn)
 	if err != nil {
-		// Handle error
+		fmt.Printf("Read error: %v\n", err)
 		return
 	}
 
-	/*
-		Over the buffer, we have to decode and handle our message, which must adhere to the
-		protocol defined in the protocol package.
-	*/
-	decodedMsg, decodeErr := protocol.Decode(buf)
+	msgType, queryBytes, decodeErr := protocol.Decode(buf)
 	if decodeErr != nil {
-		// send an error over the connection
 		_, writeErr := conn.Write([]byte("ERROR: " + decodeErr.Error()))
 		if writeErr != nil {
-			_ = fmt.Errorf("failed to write error: %v", writeErr)
+			fmt.Printf("Failed to write error: %v\n", writeErr)
 		}
 		return
 	}
 
-	// depending on the message type, call the appropriate function
-	switch decodedMsg {
+	// Always send a response for every operation type
+	switch msgType {
 	case protocol.Write:
-		// Handle write operation
-		conn.Write([]byte("Write operation handled"))
+		fmt.Println(string(queryBytes))
+		_, err = conn.Write([]byte("WRITE_OK "))
 	case protocol.Read:
-		// Handle read operation
-		fmt.Println("Handling read operation")
+		fmt.Println(string(queryBytes))
+		_, err = conn.Write([]byte("READ_OK data "))
 	case protocol.Delete:
-		// Handle delete operation
-		fmt.Println("Handling delete operation")
+		_, err = conn.Write([]byte("DELETE_OK "))
+	case protocol.Unknown:
+		_, err = conn.Write([]byte("ERROR: Unknown operation "))
 	}
 
-	fmt.Println("Received message type:", decodedMsg)
+	// Check for write errors
+	if err != nil {
+		fmt.Printf("Error writing response: %v\n", err)
+	}
 }
 
 // ever connection that is incoming must be read, create a buffer to read the connection
