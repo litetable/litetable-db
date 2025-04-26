@@ -55,7 +55,17 @@ func (e *Engine) Handle(conn net.Conn) {
 	switch msgType {
 	case protocol.Write:
 		fmt.Println(string(queryBytes))
-		_, err = conn.Write([]byte("WRITE_OK "))
+		got, err := e.write(queryBytes)
+		if err != nil {
+			_, err = conn.Write([]byte("ERROR: " + err.Error()))
+			if err != nil {
+				fmt.Printf("Error writing response: %v\n", err)
+			}
+			return
+		}
+
+		b, _ := json.Marshal(got)
+		_, err = conn.Write(b)
 	case protocol.Read:
 		fmt.Println(string(queryBytes))
 		got, err := e.Read(queryBytes)

@@ -4,6 +4,7 @@ import (
 	"db/internal/litetable"
 	"errors"
 	"fmt"
+	"sync"
 )
 
 type wal interface {
@@ -13,6 +14,7 @@ type wal interface {
 
 // Engine is the main struct that provides the interface to the LiteTable server.
 type Engine struct {
+	rwMutex       sync.RWMutex
 	data          map[string]map[string]litetable.VersionedQualifier // rowKey -> family -> qualifier -> []TimestampedValue
 	maxBufferSize int
 	wal           wal
@@ -36,6 +38,7 @@ func New(cfg *Config) (*Engine, error) {
 		return nil, err
 	}
 	return &Engine{
+		rwMutex:       sync.RWMutex{},
 		maxBufferSize: 4096,
 		wal:           cfg.WAL,
 		data:          make(map[string]map[string]litetable.VersionedQualifier),

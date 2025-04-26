@@ -28,6 +28,10 @@ func (e *Engine) Read(query []byte) (*litetable.Row, error) {
 		return nil, err
 	}
 
+	// Lock for reading (RLock instead of Lock)
+	e.rwMutex.RLock()
+	defer e.rwMutex.RUnlock()
+
 	// Check if the row exists
 	row, exists := e.data[parsed.rowKey]
 	if !exists {
@@ -137,7 +141,10 @@ func parseReadQuery(input string) (*readQuery, error) {
 				return nil, fmt.Errorf("invalid timestamp format: %s", value)
 			}
 			parsed.timestamp = t
+		default:
+			return nil, fmt.Errorf("unknown parameter: %s", key)
 		}
+
 	}
 
 	// Validate required fields
