@@ -38,7 +38,7 @@ func initialize() (*app.App, error) {
 
 	// create a LiteTable server
 	srv, err := server.New(&server.Config{
-		Certificate: cert,
+		Certificate: &cert,
 		Port:        "9443",
 		Handler:     engineHandler,
 	})
@@ -49,7 +49,7 @@ func initialize() (*app.App, error) {
 	deps = append(deps, srv)
 
 	application, err := app.CreateApp(&app.Config{
-		ServiceName: "LiteTable",
+		ServiceName: "LiteTable DB",
 		StopTimeout: 5,
 	}, deps...)
 	if err != nil {

@@ -11,10 +11,6 @@ const (
 	Write = iota
 	Read
 	Delete
-
-	messagePrefixRead   = "READ"
-	messagePrefixWrite  = "WRITE"
-	messagePrefixDelete = "DELETE"
 )
 
 var (

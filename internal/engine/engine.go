@@ -7,10 +7,14 @@ import (
 )
 
 // Engine is the main struct the provides the interface to the LiteTable server.
-type Engine struct{}
+type Engine struct {
+	maxBufferSize int
+}
 
 func New() (*Engine, error) {
-	return &Engine{}, nil
+	return &Engine{
+		maxBufferSize: 4096,
+	}, nil
 }
 
 // Handle implements the server.handler interface, allowing the engine to be used to respond
@@ -59,7 +63,7 @@ func (e *Engine) Handle(conn net.Conn) {
 
 // ever connection that is incoming must be read, create a buffer to read the connection
 func (e *Engine) read(conn net.Conn) ([]byte, error) {
-	buf := make([]byte, 4096)
+	buf := make([]byte, e.maxBufferSize)
 	n, err := conn.Read(buf)
 	if err != nil {
 		return nil, err
