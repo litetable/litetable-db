@@ -6,6 +6,7 @@ import (
 	"db/internal/app"
 	"db/internal/engine"
 	"db/internal/server"
+	"db/internal/wal"
 	"os"
 	"path/filepath"
 )
@@ -47,12 +48,22 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
-	// create the litetable engine
-	engineHandler, err := engine.New()
+	// create the WAL manager
+	walManager, err := wal.New(&wal.Config{})
 	if err != nil {
 		return nil, err
 	}
 
+	// create the litetable engine
+	engineHandler, err := engine.New(&engine.Config{
+		WAL: walManager,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	deps = append(deps, engineHandler)
+	
 	// create a LiteTable server
 	srv, err := server.New(&server.Config{
 		Certificate: &cert,

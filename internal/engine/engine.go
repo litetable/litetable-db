@@ -1,84 +1,60 @@
 package engine
 
 import (
-	"db/internal/protocol"
+	"db/internal/litetable"
+	"errors"
 	"fmt"
-	"net"
 )
 
-// Engine is the main struct the provides the interface to the LiteTable server.
-type Engine struct {
-	maxBufferSize int
+type wal interface {
+	Apply(msgType int, query []byte) error
+	Load(source map[string]map[string]litetable.VersionedQualifier) error
 }
 
-func New() (*Engine, error) {
+// Engine is the main struct that provides the interface to the LiteTable server.
+type Engine struct {
+	data          map[string]map[string]litetable.VersionedQualifier // rowKey -> family -> qualifier -> []TimestampedValue
+	maxBufferSize int
+	wal           wal
+}
+
+type Config struct {
+	WAL wal
+}
+
+func (c *Config) validate() error {
+	var errGrp []error
+	if c.WAL == nil {
+		errGrp = append(errGrp, fmt.Errorf("WAL is required"))
+	}
+
+	return errors.Join(errGrp...)
+}
+
+func New(cfg *Config) (*Engine, error) {
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
 	return &Engine{
 		maxBufferSize: 4096,
+		wal:           cfg.WAL,
+		data:          make(map[string]map[string]litetable.VersionedQualifier),
 	}, nil
 }
 
-// Handle implements the server.handler interface, allowing the engine to be used to respond
-// to incoming TLS connections.
-func (e *Engine) Handle(conn net.Conn) {
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			fmt.Printf("Error closing connection: %v\n", err)
-		}
-	}()
-
-	buf, err := e.read(conn)
-	if err != nil {
-		fmt.Printf("Read error: %v\n", err)
-		return
+// Start replays the WAL to the LiteTable in-memory data source.
+func (e *Engine) Start() error {
+	if err := e.wal.Load(e.data); err != nil {
+		return fmt.Errorf("failed to load WAL: %w", err)
 	}
 
-	msgType, queryBytes, decodeErr := protocol.Decode(buf)
-	if decodeErr != nil {
-		_, writeErr := conn.Write([]byte("ERROR: " + decodeErr.Error()))
-		if writeErr != nil {
-			fmt.Printf("Failed to write error: %v\n", writeErr)
-		}
-		return
-	}
-
-	// if query bytes are empty, return an error
-	if len(queryBytes) == 0 {
-		_, err = conn.Write([]byte("ERROR: Empty query"))
-		if err != nil {
-			fmt.Printf("Error writing response: %v\n", err)
-		}
-		return
-	}
-
-	// before processing any query, write to the WAL
-
-	// Always send a response for every operation type
-	switch msgType {
-	case protocol.Write:
-		fmt.Println(string(queryBytes))
-		_, err = conn.Write([]byte("WRITE_OK "))
-	case protocol.Read:
-		fmt.Println(string(queryBytes))
-		_, err = conn.Write([]byte("READ_OK data "))
-	case protocol.Delete:
-		_, err = conn.Write([]byte("DELETE_OK "))
-	case protocol.Unknown:
-		_, err = conn.Write([]byte("ERROR: Unknown operation "))
-	}
-
-	// Check for write errors
-	if err != nil {
-		fmt.Printf("Error writing response: %v\n", err)
-	}
+	return nil
 }
 
-// ever connection that is incoming must be read, create a buffer to read the connection
-func (e *Engine) read(conn net.Conn) ([]byte, error) {
-	buf := make([]byte, e.maxBufferSize)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-	return buf[:n], nil
+func (e *Engine) Stop() error {
+	return nil
+}
+
+func (e *Engine) Name() string {
+	return "LiteTable Engine"
 }
