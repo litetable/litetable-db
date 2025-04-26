@@ -42,13 +42,22 @@ func (e *Engine) Handle(conn net.Conn) {
 		return
 	}
 
+	// if query bytes are empty, return an error
+	if len(queryBytes) == 0 {
+		_, err = conn.Write([]byte("ERROR: Empty query"))
+		if err != nil {
+			fmt.Printf("Error writing response: %v\n", err)
+		}
+		return
+	}
+
 	// Always send a response for every operation type
 	switch msgType {
 	case protocol.Write:
-		fmt.Println(string(queryBytes))
+		fmt.Println("here", string(queryBytes))
 		_, err = conn.Write([]byte("WRITE_OK "))
 	case protocol.Read:
-		fmt.Println(string(queryBytes))
+		fmt.Println("here", string(queryBytes))
 		_, err = conn.Write([]byte("READ_OK data "))
 	case protocol.Delete:
 		_, err = conn.Write([]byte("DELETE_OK "))

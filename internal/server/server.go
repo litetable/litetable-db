@@ -87,9 +87,7 @@ func (s *Server) Start() error {
 		if err != nil {
 			return err
 		}
-
 		remoteAddr := conn.RemoteAddr().String()
-		fmt.Printf("New connection from: %s\n", remoteAddr)
 
 		// Try to acquire a connection slot
 		select {
@@ -100,7 +98,7 @@ func (s *Server) Start() error {
 					<-s.connSemaphore // Release the connection slot
 					s.activeConns.Done()
 				}()
-
+				
 				fmt.Printf("Handling connection from: %s\n", remoteAddr)
 				s.handler.Handle(conn)
 			}()
@@ -109,7 +107,6 @@ func (s *Server) Start() error {
 			_ = conn.Close()
 			fmt.Printf("Rejected connection from %s: max connections reached\n", remoteAddr)
 		}
-		// Remove this line: _ = conn.Close()
 	}
 }
 
