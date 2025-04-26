@@ -52,10 +52,13 @@ func (e *Engine) Handle(conn net.Conn) {
 	switch decodedMsg {
 	case protocol.Write:
 		// Handle write operation
+		conn.Write([]byte("Write operation handled"))
 	case protocol.Read:
 		// Handle read operation
+		fmt.Println("Handling read operation")
 	case protocol.Delete:
 		// Handle delete operation
+		fmt.Println("Handling delete operation")
 	}
 
 	fmt.Println("Received message type:", decodedMsg)

@@ -6,6 +6,14 @@ import (
 	"db/internal/app"
 	"db/internal/engine"
 	"db/internal/server"
+	"os"
+	"path/filepath"
+)
+
+const (
+	defaultDir        = ".litetable"
+	defaultServerCert = "server.crt"
+	defaultServerKey  = "server.key"
 )
 
 func main() {
@@ -22,10 +30,19 @@ func main() {
 func initialize() (*app.App, error) {
 	var deps []app.Dependency
 
-	// load the TLS certificate and key, ideally this is configuration based on deployements, but
+	// load the defaults from the os.HomeDir
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	// get the filepath
+	certDir := filepath.Join(homeDir, defaultDir)
+
+	// load the TLS certificate and key, ideally this is configuration based on deployments, but
 	// for now we can roll with it.
 	// TODO: make certificate requirements configurable
-	cert, err := tls.LoadX509KeyPair("local/local_cert.pem", "local/local_key.pem")
+	cert, err := tls.LoadX509KeyPair(certDir+"/"+defaultServerCert, certDir+"/"+defaultServerKey)
 	if err != nil {
 		return nil, err
 	}

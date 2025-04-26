@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 )
@@ -76,6 +77,7 @@ func New(cfg *Config) (*Server, error) {
 		port:           cfg.Port,
 		handler:        cfg.Handler,
 		maxConnections: maxConns,
+		connSemaphore:  make(chan struct{}, maxConns), // Initialize the channel
 	}, nil
 }
 
@@ -86,6 +88,9 @@ func (s *Server) Start() error {
 			return err
 		}
 
+		remoteAddr := conn.RemoteAddr().String()
+		fmt.Printf("New connection from: %s\n", remoteAddr)
+
 		// Try to acquire a connection slot
 		select {
 		case s.connSemaphore <- struct{}{}: // Connection slot acquired
@@ -95,6 +100,7 @@ func (s *Server) Start() error {
 					<-s.connSemaphore // Release the connection slot
 					s.activeConns.Done()
 				}()
+
 				s.handler.Handle(conn)
 			}()
 		default:
