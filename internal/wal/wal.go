@@ -90,7 +90,7 @@ func (m *Manager) Apply(msgType int, b []byte) error {
 	if msgType == protocol.Read {
 		return nil
 	}
-	
+
 	entry, err := m.parse(msgType, b)
 	if err != nil {
 		return fmt.Errorf("failed to parse WAL entry: %w", err)
@@ -130,6 +130,7 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 		}
 
 		key, value := kv[0], kv[1]
+		key = strings.TrimLeft(key, "-")
 
 		switch key {
 		case "key":
@@ -140,6 +141,14 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 			entry.Columns[family] = make(map[string][]byte)
 		case "qualifier":
 			currentQualifier = value
+			// For delete operations, we might not have a value
+			if msgType == protocol.Delete && family != "" {
+				// Add empty value for the qualifier in a delete operation
+				if _, ok := entry.Columns[family]; !ok {
+					entry.Columns[family] = make(map[string][]byte)
+				}
+				entry.Columns[family][currentQualifier] = nil
+			}
 		case "value":
 			if family == "" {
 				return nil, fmt.Errorf("value without family")
@@ -155,7 +164,7 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 			entry.Columns[family][currentQualifier] = []byte(value)
 			currentQualifier = "" // Reset for next qualifier
 		default:
-			return nil, fmt.Errorf("unknown key: %s", key)
+			// Ignore other parameters for WAL purposes
 		}
 	}
 
@@ -163,10 +172,15 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	if entry.RowKey == "" {
 		return nil, fmt.Errorf("missing key")
 	}
-	if entry.Family == "" {
+
+	// For delete operations, family might be empty if deleting an entire row
+	if msgType != protocol.Delete && entry.Family == "" {
 		return nil, fmt.Errorf("missing family")
 	}
-	if len(entry.Columns) == 0 || len(entry.Columns[family]) == 0 {
+
+	// For delete operations, we may not have qualifiers
+	if msgType != protocol.Delete && (len(entry.Columns) == 0 ||
+		(family != "" && len(entry.Columns[family]) == 0)) {
 		return nil, fmt.Errorf("missing qualifier/value pairs")
 	}
 

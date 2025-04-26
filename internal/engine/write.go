@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// Write processes a mutation to update the data store
-func (e *Engine) write(query []byte) (*writeQuery, error) {
+// write processes a mutation to update the data store
+func (e *Engine) write(query []byte) (*litetable.Row, error) {
 	// Parse the query
 	parsed, err := parseWriteQuery(string(query))
 	if err != nil {
@@ -20,40 +20,61 @@ func (e *Engine) write(query []byte) (*writeQuery, error) {
 	defer e.rwMutex.Unlock()
 
 	// Ensure the row exists
-	if _, exists := e.data[parsed.RowKey]; !exists {
-		e.data[parsed.RowKey] = make(map[string]litetable.VersionedQualifier)
+	if _, exists := e.data[parsed.rowKey]; !exists {
+		e.data[parsed.rowKey] = make(map[string]litetable.VersionedQualifier)
 	}
 
 	// Ensure the family exists
-	if _, exists := e.data[parsed.RowKey][parsed.Family]; !exists {
-		e.data[parsed.RowKey][parsed.Family] = make(litetable.VersionedQualifier)
+	if _, exists := e.data[parsed.rowKey][parsed.family]; !exists {
+		e.data[parsed.rowKey][parsed.family] = make(litetable.VersionedQualifier)
 	}
 
-	// Write the value
-	e.data[parsed.RowKey][parsed.Family][parsed.Qualifier] = append(
-		e.data[parsed.RowKey][parsed.Family][parsed.Qualifier],
-		litetable.TimestampedValue{
-			Value:     parsed.Value,
-			Timestamp: parsed.Timestamp,
-		},
-	)
+	// Write all qualifier-value pairs with the same timestamp
+	for i, qualifier := range parsed.qualifiers {
+		value := parsed.values[i]
+		e.data[parsed.rowKey][parsed.family][qualifier] = append(
+			e.data[parsed.rowKey][parsed.family][qualifier],
+			litetable.TimestampedValue{
+				Value:     value,
+				Timestamp: parsed.timestamp,
+			},
+		)
+	}
 
-	return parsed, nil
+	// Create response with all written values
+	result := &litetable.Row{
+		Key:     parsed.rowKey,
+		Columns: make(map[string]litetable.VersionedQualifier),
+	}
+	result.Columns[parsed.family] = make(litetable.VersionedQualifier)
+
+	for i, qualifier := range parsed.qualifiers {
+		result.Columns[parsed.family][qualifier] = []litetable.TimestampedValue{
+			{
+				Value:     parsed.values[i],
+				Timestamp: parsed.timestamp,
+			},
+		}
+	}
+
+	return result, nil
 }
 
 type writeQuery struct {
-	RowKey    string    `json:"key"`
-	Family    string    `json:"family"`
-	Qualifier string    `json:"qualifier"`
-	Value     []byte    `json:"value"`
-	Timestamp time.Time `json:"timestamp"` // Parsed timestamp
+	rowKey     string
+	family     string
+	qualifiers []string
+	values     [][]byte
+	timestamp  time.Time
 }
 
 // parseWriteQuery parses a write query string into a structured form
 func parseWriteQuery(input string) (*writeQuery, error) {
 	parts := strings.Fields(input)
 	parsed := &writeQuery{
-		Timestamp: time.Now(), // Default to current time if not specified
+		qualifiers: []string{},
+		values:     [][]byte{},
+		timestamp:  time.Now(), // Default to current time if not specified
 	}
 
 	for _, part := range parts {
@@ -63,37 +84,42 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 		}
 
 		key, value := kv[0], kv[1]
+		key = strings.TrimLeft(key, "-")
 
 		switch key {
 		case "key":
-			parsed.RowKey = value
+			parsed.rowKey = value
 		case "family":
-			parsed.Family = value
+			parsed.family = value
 		case "qualifier":
-			parsed.Qualifier = value
+			parsed.qualifiers = append(parsed.qualifiers, value)
 		case "value":
-			parsed.Value = []byte(value)
+			parsed.values = append(parsed.values, []byte(value))
 		case "timestamp":
 			t, err := time.Parse(time.RFC3339, value)
 			if err != nil {
 				return nil, fmt.Errorf("invalid timestamp format: %s", value)
 			}
-			parsed.Timestamp = t
+			parsed.timestamp = t
 		}
 	}
 
 	// Validate required fields
-	if parsed.RowKey == "" {
+	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")
 	}
-	if parsed.Family == "" {
+	if parsed.family == "" {
 		return nil, fmt.Errorf("missing family")
 	}
-	if parsed.Qualifier == "" {
+	if len(parsed.qualifiers) == 0 {
 		return nil, fmt.Errorf("missing qualifier")
 	}
-	if parsed.Value == nil {
+	if len(parsed.values) == 0 {
 		return nil, fmt.Errorf("missing value")
+	}
+	if len(parsed.qualifiers) != len(parsed.values) {
+		return nil, fmt.Errorf("number of qualifiers (%d) doesn't match number of values (%d)",
+			len(parsed.qualifiers), len(parsed.values))
 	}
 
 	return parsed, nil

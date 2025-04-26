@@ -51,6 +51,7 @@ func (e *Engine) Handle(conn net.Conn) {
 		return
 	}
 
+	var response []byte
 	// Always send a response for every operation type
 	switch msgType {
 	case protocol.Write:
@@ -65,7 +66,7 @@ func (e *Engine) Handle(conn net.Conn) {
 		}
 
 		b, _ := json.Marshal(got)
-		_, err = conn.Write(b)
+		response = b
 	case protocol.Read:
 		fmt.Println(string(queryBytes))
 		got, err := e.Read(queryBytes)
@@ -77,16 +78,32 @@ func (e *Engine) Handle(conn net.Conn) {
 			return
 		}
 		b, _ := json.Marshal(got)
-		_, err = conn.Write(b)
+		response = b
 	case protocol.Delete:
-		_, err = conn.Write([]byte("DELETE_OK "))
+		err = e.delete(queryBytes)
+		if err != nil {
+			_, err = conn.Write([]byte("ERROR: " + err.Error()))
+			if err != nil {
+				fmt.Printf("Error writing response: %v\n", err)
+			}
+			return
+		}
+		response = []byte("OK")
 	case protocol.Unknown:
-		_, err = conn.Write([]byte("ERROR: Unknown operation "))
+		err = fmt.Errorf("unknown operation")
+		response = []byte("ERROR: Unknown operation ")
 	}
 
-	// Check for write errors
+	// Check for any errors
 	if err != nil {
 		fmt.Printf("Error writing response: %v\n", err)
+	}
+	
+	// Write the response to the connection
+	_, err = conn.Write(response)
+	if err != nil {
+		fmt.Printf("Error writing response: %v\n", err)
+		return
 	}
 }
 
