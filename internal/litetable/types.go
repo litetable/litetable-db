@@ -8,8 +8,8 @@ import (
 type TimestampedValue struct {
 	Value       []byte    `json:"value"`
 	Timestamp   time.Time `json:"timestamp"`
-	IsTombstone bool      `json:"-"` // if the value is slated for deletion
-	ExpiresAt   time.Time `json:"-"` // the time in which the value will expire
+	IsTombstone bool      `json:"tombstone"` // if the value is slated for deletion
+	ExpiresAt   time.Time `json:"expires"`   // the time in which the value will expire
 }
 
 // VersionedQualifier maps qualifiers to their timestamped values

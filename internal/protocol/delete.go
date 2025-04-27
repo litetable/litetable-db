@@ -30,6 +30,7 @@ func (m *Manager) Delete(params *DeleteParams) error {
 
 	// BigTable-like approach: Add tombstone markers
 	now := time.Now()
+	modifiedFamilies := make(map[string]bool)
 
 	if parsed.family == "" {
 		// Mark the entire row for deletion by adding tombstones to all families
@@ -37,6 +38,7 @@ func (m *Manager) Delete(params *DeleteParams) error {
 			for qualifier := range family {
 				addTombstone(row, familyName, qualifier, now, parsed.ttl)
 			}
+			modifiedFamilies[familyName] = true
 		}
 	} else {
 		family, exists := row[parsed.family]
@@ -56,6 +58,14 @@ func (m *Manager) Delete(params *DeleteParams) error {
 					addTombstone(row, parsed.family, qualifier, now, parsed.ttl)
 				}
 			}
+		}
+		modifiedFamilies[parsed.family] = true
+	}
+
+	// Write all modified families to disk
+	for family := range modifiedFamilies {
+		if storeErr := m.dataStorage.Write(parsed.rowKey, family, row[family]); storeErr != nil {
+			return fmt.Errorf("failed to write tombstone to disk: %w", storeErr)
 		}
 	}
 

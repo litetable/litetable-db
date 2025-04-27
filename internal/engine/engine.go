@@ -106,7 +106,6 @@ func (e *Engine) Start() error {
 			e.data[rowKey][family] = qualifier
 		}
 	}
-
 	return nil
 }
 

@@ -18,11 +18,12 @@ const (
 
 // Entry represents a Write-Ahead Log entry for a database operation
 type Entry struct {
-	Operation int                          `json:"operation"`
-	RowKey    string                       `json:"rowKey"`
-	Family    string                       `json:"family"`
-	Columns   map[string]map[string][]byte `json:"cols"` // family -> qualifier -> value
-	Timestamp time.Time                    `json:"timestamp"`
+	Operation   int                          `json:"operation"`
+	RowKey      string                       `json:"rowKey"`
+	Family      string                       `json:"family"`
+	Columns     map[string]map[string][]byte `json:"cols"` // family -> qualifier -> value
+	Timestamp   time.Time                    `json:"timestamp"`
+	IsTombstone bool                         `json:"isTombstone,omitempty"` // Add this field
 }
 
 type Manager struct {
@@ -115,9 +116,10 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	parts := splitParts(input)
 
 	entry := &Entry{
-		Operation: msgType,
-		Columns:   make(map[string]map[string][]byte),
-		Timestamp: time.Now(),
+		Operation:   msgType,
+		Columns:     make(map[string]map[string][]byte),
+		Timestamp:   time.Now(),
+		IsTombstone: msgType == protocol.Delete, // Set tombstone flag for delete operations
 	}
 
 	// Special handling for CREATE operation
@@ -182,12 +184,12 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 			entry.Columns[family] = make(map[string][]byte)
 		case "qualifier":
 			currentQualifier = value
-			// For delete operations, we might not have a value
+			// For delete operations, we explicitly mark the qualifier in the WAL
 			if msgType == protocol.Delete && family != "" {
-				// Add empty value for the qualifier in a delete operation
 				if _, ok := entry.Columns[family]; !ok {
 					entry.Columns[family] = make(map[string][]byte)
 				}
+				// Use an empty byte array to represent the tombstone
 				entry.Columns[family][currentQualifier] = nil
 			}
 		case "value":

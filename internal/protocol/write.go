@@ -15,7 +15,7 @@ type WriteParams struct {
 	ConfiguredFamilies []string
 }
 
-// write processes a mutation to update the data store
+// Write processes a mutation to update the data store
 func (m *Manager) Write(params *WriteParams) ([]byte, error) {
 	// Parse the query
 	parsed, err := parseWriteQuery(string(params.Query))

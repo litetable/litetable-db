@@ -295,9 +295,16 @@ func (r *readQuery) readRowsByRegex(data *DataFormat) (map[string]*litetable.Row
 // getLatestN returns the latest N values from a slice of TimestampedValue.
 func (r *readQuery) getLatestN(values []litetable.TimestampedValue,
 	n int) []litetable.TimestampedValue {
-	// Create a copy to avoid modifying the original
-	valuesCopy := make([]litetable.TimestampedValue, len(values))
-	copy(valuesCopy, values)
+
+	// Make a copy of the values to avoid modifying the original
+	valuesCopy := make([]litetable.TimestampedValue, 0, len(values))
+
+	// Only include non-tombstone values
+	for i := range values {
+		if !values[i].IsTombstone {
+			valuesCopy = append(valuesCopy, values[i])
+		}
+	}
 
 	// Sort by timestamp descending (newest first)
 	sort.Slice(valuesCopy, func(i, j int) bool {
