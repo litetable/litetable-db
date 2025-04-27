@@ -2,20 +2,14 @@ package engine
 
 import (
 	"db/internal/litetable"
-	"db/internal/protocol"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// delete marks data for deletion in the store
+// delete marks data for deletion in the store using tombstones
 func (e *Engine) delete(query []byte) error {
-	// Log the delete operation to WAL
-	if err := e.wal.Apply(protocol.Delete, query); err != nil {
-		return fmt.Errorf("failed to log delete operation: %w", err)
-	}
-
 	// Parse the query
 	parsed, err := parseDeleteQuery(string(query))
 	if err != nil {
@@ -32,52 +26,32 @@ func (e *Engine) delete(query []byte) error {
 		return fmt.Errorf("row not found: %s", parsed.rowKey)
 	}
 
-	// Handle different deletion strategies
-	if parsed.shouldRemove {
-		// Immediate removal approach (not BigTable-like)
-		if parsed.family == "" {
-			// Delete entire row
-			delete(e.data, parsed.rowKey)
-		} else if !exists || parsed.qualifiers == nil || len(parsed.qualifiers) == 0 {
-			// Delete entire family
-			delete(row, parsed.family)
-		} else {
-			// Delete specific qualifiers
-			family, exists := row[parsed.family]
-			if exists {
-				for _, q := range parsed.qualifiers {
-					delete(family, q)
-				}
+	// BigTable-like approach: Add tombstone markers
+	now := time.Now()
+
+	if parsed.family == "" {
+		// Mark the entire row for deletion by adding tombstones to all families
+		for familyName, family := range row {
+			for qualifier := range family {
+				addTombstone(row, familyName, qualifier, now, parsed.ttl)
 			}
 		}
 	} else {
-		// BigTable-like approach: Add tombstone markers
-		now := time.Now()
+		family, exists := row[parsed.family]
+		if !exists {
+			return fmt.Errorf("family not found: %s", parsed.family)
+		}
 
-		if parsed.family == "" {
-			// Mark the entire row for deletion by adding tombstones to all families
-			for familyName, family := range row {
-				for qualifier := range family {
-					addTombstone(row, familyName, qualifier, now, parsed.ttl)
-				}
+		if len(parsed.qualifiers) == 0 {
+			// Mark entire family for deletion
+			for qualifier := range family {
+				addTombstone(row, parsed.family, qualifier, now, parsed.ttl)
 			}
 		} else {
-			family, exists := row[parsed.family]
-			if !exists {
-				return fmt.Errorf("family not found: %s", parsed.family)
-			}
-
-			if len(parsed.qualifiers) == 0 {
-				// Mark entire family for deletion
-				for qualifier := range family {
+			// Mark specific qualifiers
+			for _, qualifier := range parsed.qualifiers {
+				if _, exists := family[qualifier]; exists {
 					addTombstone(row, parsed.family, qualifier, now, parsed.ttl)
-				}
-			} else {
-				// Mark specific qualifiers
-				for _, qualifier := range parsed.qualifiers {
-					if _, exists := family[qualifier]; exists {
-						addTombstone(row, parsed.family, qualifier, now, parsed.ttl)
-					}
 				}
 			}
 		}
@@ -102,11 +76,10 @@ func addTombstone(row map[string]litetable.VersionedQualifier, family, qualifier
 }
 
 type deleteQuery struct {
-	rowKey       string
-	family       string
-	qualifiers   []string
-	shouldRemove bool
-	ttl          time.Duration
+	rowKey     string
+	family     string
+	qualifiers []string
+	ttl        time.Duration
 }
 
 func parseDeleteQuery(input string) (*deleteQuery, error) {
@@ -132,10 +105,6 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 			parsed.family = value
 		case "qualifier":
 			parsed.qualifiers = append(parsed.qualifiers, value)
-		case "mode":
-			if value == "immediate" {
-				parsed.shouldRemove = true
-			}
 		case "ttl":
 			ttlSec, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
