@@ -2,9 +2,9 @@ package wal
 
 import (
 	"bufio"
-	"db/internal/litetable"
-	"db/internal/protocol"
 	"encoding/json"
+	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/protocol"
 	"log"
 	"os"
 )

@@ -1,8 +1,8 @@
 package engine
 
 import (
-	"db/internal/litetable"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"strings"
 	"time"
 )

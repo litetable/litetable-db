@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"db/internal/app"
-	"db/internal/engine"
-	"db/internal/server"
-	"db/internal/wal"
+	"github.com/litetable/litetable-db/internal/app"
+	"github.com/litetable/litetable-db/internal/engine"
+	"github.com/litetable/litetable-db/internal/server"
+	"github.com/litetable/litetable-db/internal/wal"
 	"os"
 	"path/filepath"
 )
@@ -63,7 +63,7 @@ func initialize() (*app.App, error) {
 	}
 
 	deps = append(deps, engineHandler)
-	
+
 	// create a LiteTable server
 	srv, err := server.New(&server.Config{
 		Certificate: &cert,

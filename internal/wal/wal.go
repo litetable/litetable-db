@@ -1,10 +1,10 @@
 package wal
 
 import (
-	"db/internal/protocol"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/protocol"
 	"os"
 	"path/filepath"
 	"strings"

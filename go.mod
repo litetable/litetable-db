@@ -1,4 +1,4 @@
-module db
+module github.com/litetable/litetable-db
 
 go 1.24
 

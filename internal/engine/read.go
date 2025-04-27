@@ -1,9 +1,9 @@
 package engine
 
 import (
-	"db/internal/litetable"
-	"db/internal/protocol"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/protocol"
 	"sort"
 	"strconv"
 	"strings"

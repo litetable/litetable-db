@@ -1,9 +1,9 @@
 package engine
 
 import (
-	"db/internal/litetable"
 	"errors"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"sync"
 )
 

@@ -1,9 +1,9 @@
 package engine
 
 import (
-	"db/internal/protocol"
 	"encoding/json"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/protocol"
 	"net"
 )
 
@@ -98,7 +98,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	if err != nil {
 		fmt.Printf("Error writing response: %v\n", err)
 	}
-	
+
 	// Write the response to the connection
 	_, err = conn.Write(response)
 	if err != nil {
