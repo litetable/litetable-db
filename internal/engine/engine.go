@@ -55,6 +55,12 @@ func New(cfg *Config) (*Engine, error) {
 
 // Start replays the WAL to the LiteTable in-memory data source.
 func (e *Engine) Start() error {
+	e.rwMutex.Lock()
+	defer e.rwMutex.Unlock()
+
+	// Clear any existing data to prevent duplication
+	e.data = make(map[string]map[string]litetable.VersionedQualifier)
+
 	// First load data from disk storage
 	diskData, err := e.storage.LoadFromDisk()
 	if err != nil {
@@ -69,10 +75,6 @@ func (e *Engine) Start() error {
 		for family, qualifier := range families {
 			e.data[rowKey][family] = qualifier
 		}
-	}
-
-	if err := e.wal.Load(e.data); err != nil {
-		return fmt.Errorf("failed to load WAL: %w", err)
 	}
 
 	return nil
