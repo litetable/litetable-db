@@ -12,11 +12,13 @@ import (
 )
 
 const (
-	dataDiskName = ".table"
+	dataDiskName       = ".table"
+	dataFamilyLockFile = "config.families.json"
 )
 
 // Disk handles persistent storage operations to a disk
 type Disk struct {
+	rootDir    string
 	dataDir    string
 	memTable   map[string]map[string]litetable.VersionedQualifier
 	lock       sync.RWMutex
@@ -25,13 +27,13 @@ type Disk struct {
 }
 
 type Config struct {
-	DataDir        string
+	RootDir        string
 	FlushThreshold int
 }
 
 func (c *Config) validate() error {
 	var errGrp []error
-	if c.DataDir == "" {
+	if c.RootDir == "" {
 		errGrp = append(errGrp, fmt.Errorf("data directory is required"))
 	}
 	if c.FlushThreshold <= 0 {
@@ -47,12 +49,13 @@ func NewDiskStorage(cfg *Config) (*Disk, error) {
 		return nil, err
 	}
 
-	dirName := filepath.Join(cfg.DataDir, dataDiskName)
+	dirName := filepath.Join(cfg.RootDir, dataDiskName)
 	if err := os.MkdirAll(dirName, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
 	ds := &Disk{
+		rootDir:   cfg.RootDir,
 		dataDir:   dirName,
 		memTable:  make(map[string]map[string]litetable.VersionedQualifier),
 		flushSize: cfg.FlushThreshold,
@@ -192,6 +195,6 @@ func (ds *Disk) ForceFlush() error {
 	return nil
 }
 
-func (ds *Disk) FileLocation() string {
-	return ds.dataDir
+func (ds *Disk) FamilyLockFile() string {
+	return filepath.Join(ds.rootDir, dataFamilyLockFile)
 }

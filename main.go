@@ -51,7 +51,7 @@ func initialize() (*app.App, error) {
 
 	// create a disk storage manager
 	diskStorage, err := storage.NewDiskStorage(&storage.Config{
-		DataDir:        certDir,
+		RootDir:        certDir,
 		FlushThreshold: 1000,
 	})
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/storage"
-	"path/filepath"
 	"sync"
 )
 
@@ -56,7 +55,7 @@ func New(cfg *Config) (*Engine, error) {
 		data:            make(map[string]map[string]litetable.VersionedQualifier),
 		storage:         cfg.Storage,
 		allowedFamilies: make([]string, 0),
-		familiesFile:    filepath.Join(cfg.Storage.FileLocation(), "families.json"),
+		familiesFile:    cfg.Storage.FamilyLockFile(),
 	}
 
 	// Load allowed families from disk
