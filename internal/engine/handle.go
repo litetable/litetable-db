@@ -7,7 +7,8 @@ import (
 )
 
 // Handle implements the server.handler interface, allowing the engine to be used to respond
-// to incoming TLS connections.
+// to incoming TLS connections. Handlers take the connection but are not allowed to return an error.
+// Any errors should be written to the connection as to not block or crash the server.
 func (e *Engine) Handle(conn net.Conn) {
 	defer func() {
 		err := conn.Close()
