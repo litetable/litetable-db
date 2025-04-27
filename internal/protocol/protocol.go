@@ -11,6 +11,8 @@ const (
 	Read
 	Write
 	Delete
+
+	Create
 )
 
 var (
@@ -41,6 +43,10 @@ func Decode(buf []byte) (int, []byte, error) {
 	case 'D': // DELETE
 		if len(buf) >= 7 && buf[1] == 'E' && buf[2] == 'L' && buf[3] == 'E' && buf[4] == 'T' && buf[5] == 'E' && buf[6] == ' ' {
 			return Delete, buf[7:], nil
+		}
+	case 'C': // CREATE
+		if len(buf) >= 7 && buf[1] == 'R' && buf[2] == 'E' && buf[3] == 'A' && buf[4] == 'T' && buf[5] == 'E' && buf[6] == ' ' {
+			return Create, buf[7:], nil
 		}
 	}
 

@@ -114,12 +114,51 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	input := string(b)
 	parts := splitParts(input)
 
+	fmt.Printf("Parsed parts: %v\n", parts)
 	entry := &Entry{
 		Operation: msgType,
 		Columns:   make(map[string]map[string][]byte),
 		Timestamp: time.Now(),
 	}
 
+	// Special handling for CREATE operation
+	if msgType == protocol.Create {
+		// Parse the family=columns part
+		for i := 0; i < len(parts); i++ { // Start from index 0
+			kv := strings.SplitN(parts[i], "=", 2)
+			if len(kv) != 2 {
+				return nil, fmt.Errorf("invalid format at %s", parts[i])
+			}
+
+			key, value := kv[0], kv[1]
+
+			fmt.Println("Key:", key, "Value:", value)
+			if key == "family" {
+				entry.Family = value // Should be the actual value, not "key" or "family"
+				columns := strings.Split(value, ",")
+				entry.Columns[entry.Family] = make(map[string][]byte) // Use entry.Family here
+				for _, col := range columns {
+					col = strings.TrimSpace(col)
+					if col != "" {
+						entry.Columns[entry.Family][col] = []byte{}
+					}
+				}
+			}
+		}
+
+		// Add better validation
+		if entry.Family == "" {
+			return nil, fmt.Errorf("missing family name")
+		}
+
+		if len(entry.Columns) == 0 || len(entry.Columns[entry.Family]) == 0 {
+			return nil, fmt.Errorf("missing columns in family definition")
+		}
+
+		return entry, nil
+	}
+
+	// Existing code for other operations
 	var family string
 	var currentQualifier string
 
@@ -132,6 +171,7 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 		key, value := kv[0], kv[1]
 		key = strings.TrimLeft(key, "-")
 
+		// Rest of your existing code
 		switch key {
 		case "key":
 			entry.RowKey = value
@@ -168,7 +208,7 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 		}
 	}
 
-	// Validate required fields
+	// Modify validation for other operations
 	if entry.RowKey == "" {
 		return nil, fmt.Errorf("missing key")
 	}
@@ -179,8 +219,8 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	}
 
 	// For delete operations, we may not have qualifiers
-	if msgType != protocol.Delete && (len(entry.Columns) == 0 ||
-		(family != "" && len(entry.Columns[family]) == 0)) {
+	if msgType != protocol.Delete &&
+		(len(entry.Columns) == 0 || (family != "" && len(entry.Columns[family]) == 0)) {
 		return nil, fmt.Errorf("missing qualifier/value pairs")
 	}
 

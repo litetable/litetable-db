@@ -16,6 +16,11 @@ func (e *Engine) write(query []byte) (*litetable.Row, error) {
 		return nil, err
 	}
 
+	// Validate the family is allowed
+	if !e.isFamilyAllowed(parsed.family) {
+		return nil, fmt.Errorf("column family not allowed: %s", parsed.family)
+	}
+	
 	// Lock for writing
 	e.rwMutex.Lock()
 	defer e.rwMutex.Unlock()

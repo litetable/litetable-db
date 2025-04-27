@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/storage"
+	"path/filepath"
 	"sync"
 )
 
@@ -20,6 +21,9 @@ type Engine struct {
 	maxBufferSize int
 	wal           wal
 	storage       *storage.Disk
+
+	allowedFamilies []string // Maps family names to allowed columns
+	familiesFile    string   // Path to store allowed families configuration
 }
 
 type Config struct {
@@ -44,13 +48,23 @@ func New(cfg *Config) (*Engine, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	return &Engine{
-		rwMutex:       sync.RWMutex{},
-		maxBufferSize: 4096,
-		wal:           cfg.WAL,
-		data:          make(map[string]map[string]litetable.VersionedQualifier),
-		storage:       cfg.Storage,
-	}, nil
+
+	e := &Engine{
+		rwMutex:         sync.RWMutex{},
+		maxBufferSize:   4096,
+		wal:             cfg.WAL,
+		data:            make(map[string]map[string]litetable.VersionedQualifier),
+		storage:         cfg.Storage,
+		allowedFamilies: make([]string, 0),
+		familiesFile:    filepath.Join(cfg.Storage.FileLocation(), "families.json"),
+	}
+
+	// Load allowed families from disk
+	if err := e.loadAllowedFamilies(); err != nil {
+		return nil, err
+	}
+
+	return e, nil
 }
 
 // Start replays the WAL to the LiteTable in-memory data source.

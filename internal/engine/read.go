@@ -3,7 +3,6 @@ package engine
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/protocol"
 	"regexp"
 	"sort"
 	"strconv"
@@ -14,15 +13,14 @@ import (
 // Read processes a read query and returns the requested data.
 // Supports direct key lookup, prefix filtering, and regex matching.
 func (e *Engine) Read(query []byte) (interface{}, error) {
-	// Log the read operation
-	if err := e.wal.Apply(protocol.Read, query); err != nil {
-		return nil, fmt.Errorf("failed to log read operation: %w", err)
-	}
-
 	// Parse the query
 	parsed, err := parseReadQuery(string(query))
 	if err != nil {
 		return nil, err
+	}
+
+	if !e.isFamilyAllowed(parsed.family) {
+		return nil, fmt.Errorf("column family does not exist: %s", parsed.family)
 	}
 
 	// Lock for reading
@@ -49,7 +47,6 @@ func (e *Engine) Read(query []byte) (interface{}, error) {
 
 // readSingleRow reads a single row based on the exact key
 func (e *Engine) readSingleRow(parsed *readQuery) (*litetable.Row, error) {
-	fmt.Println("Reading single row:", parsed.rowKey)
 	// Check if the row exists
 	row, exists := e.data[parsed.rowKey]
 	if !exists {
@@ -143,7 +140,6 @@ func (e *Engine) readRowsByRegex(parsed *readQuery) (map[string]*litetable.Row, 
 	if err != nil {
 		return nil, fmt.Errorf("invalid regex pattern: %w", err)
 	}
-	fmt.Println("Searching for rows with regex:", regex)
 
 	results := make(map[string]*litetable.Row)
 
@@ -263,7 +259,7 @@ func parseReadQuery(input string) (*readQuery, error) {
 	if parsed.family == "" {
 		return nil, fmt.Errorf("missing family")
 	}
-	
+
 	return parsed, nil
 }
 

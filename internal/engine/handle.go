@@ -25,7 +25,7 @@ func (e *Engine) Handle(conn net.Conn) {
 
 	msgType, queryBytes, decodeErr := protocol.Decode(buf)
 	if decodeErr != nil {
-		_, writeErr := conn.Write([]byte("ERROR: " + decodeErr.Error()))
+		_, writeErr := conn.Write([]byte(decodeErr.Error()))
 		if writeErr != nil {
 			fmt.Printf("Failed to write error: %v\n", writeErr)
 		}
@@ -34,7 +34,7 @@ func (e *Engine) Handle(conn net.Conn) {
 
 	// if query bytes are empty, return an error
 	if len(queryBytes) == 0 {
-		_, err = conn.Write([]byte("ERROR: Empty query"))
+		_, err = conn.Write([]byte("Empty query"))
 		if err != nil {
 			fmt.Printf("Error writing response: %v\n", err)
 		}
@@ -44,7 +44,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	// before processing any query, write to the WAL
 	if err = e.wal.Apply(msgType, queryBytes); err != nil {
 		fmt.Printf("Failed to apply entry: %v\n", err)
-		_, err = conn.Write([]byte("ERROR: " + err.Error()))
+		_, err = conn.Write([]byte(err.Error()))
 		if err != nil {
 			fmt.Printf("Error writing response: %v\n", err)
 		}
@@ -54,10 +54,20 @@ func (e *Engine) Handle(conn net.Conn) {
 	var response []byte
 	// Always send a response for every operation type
 	switch msgType {
+	case protocol.Create:
+		err = e.createFamily(queryBytes)
+		if err != nil {
+			_, err = conn.Write([]byte(err.Error()))
+			if err != nil {
+				fmt.Printf("Error writing response: %v\n", err)
+			}
+			return
+		}
+		response = []byte("Family created successfully")
 	case protocol.Write:
 		got, err := e.write(queryBytes)
 		if err != nil {
-			_, err = conn.Write([]byte("ERROR: " + err.Error()))
+			_, err = conn.Write([]byte(err.Error()))
 			if err != nil {
 				fmt.Printf("Error writing response: %v\n", err)
 			}
@@ -69,7 +79,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	case protocol.Read:
 		got, err := e.Read(queryBytes)
 		if err != nil {
-			_, err = conn.Write([]byte("ERROR: " + err.Error()))
+			_, err = conn.Write([]byte(err.Error()))
 			if err != nil {
 				fmt.Printf("Error writing response: %v\n", err)
 			}
@@ -80,7 +90,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	case protocol.Delete:
 		err = e.delete(queryBytes)
 		if err != nil {
-			_, err = conn.Write([]byte("ERROR: " + err.Error()))
+			_, err = conn.Write([]byte(err.Error()))
 			if err != nil {
 				fmt.Printf("Error writing response: %v\n", err)
 			}

@@ -191,3 +191,7 @@ func (ds *Disk) ForceFlush() error {
 	}
 	return nil
 }
+
+func (ds *Disk) FileLocation() string {
+	return ds.dataDir
+}
