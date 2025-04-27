@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -79,7 +80,7 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 	parsed := &writeQuery{
 		qualifiers: []string{},
 		values:     [][]byte{},
-		timestamp:  time.Now(), // Default to current time if not specified
+		timestamp:  time.Now(),
 	}
 
 	for _, part := range parts {
@@ -91,25 +92,31 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 		key, value := kv[0], kv[1]
 		key = strings.TrimLeft(key, "-")
 
+		// Decode URL-encoded values
+		decodedValue, err := url.QueryUnescape(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode value: %s", err)
+		}
+
 		switch key {
 		case "key":
-			parsed.rowKey = value
+			parsed.rowKey = decodedValue
 		case "family":
-			parsed.family = value
+			parsed.family = decodedValue
 		case "qualifier":
-			parsed.qualifiers = append(parsed.qualifiers, value)
+			parsed.qualifiers = append(parsed.qualifiers, decodedValue)
 		case "value":
-			parsed.values = append(parsed.values, []byte(value))
+			parsed.values = append(parsed.values, []byte(decodedValue))
 		case "timestamp":
-			t, err := time.Parse(time.RFC3339, value)
+			t, err := time.Parse(time.RFC3339, decodedValue)
 			if err != nil {
-				return nil, fmt.Errorf("invalid timestamp format: %s", value)
+				return nil, fmt.Errorf("invalid timestamp format: %s", decodedValue)
 			}
 			parsed.timestamp = t
 		}
 	}
 
-	// Validate required fields
+	// Validation checks remain the same
 	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")
 	}
