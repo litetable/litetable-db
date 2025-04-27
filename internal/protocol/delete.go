@@ -1,4 +1,4 @@
-package engine
+package protocol
 
 import (
 	"fmt"
@@ -8,20 +8,22 @@ import (
 	"time"
 )
 
-// delete marks data for deletion in the store using tombstones
-func (e *Engine) delete(query []byte) error {
+type DeleteParams struct {
+	Query              []byte
+	Data               *DataFormat
+	ConfiguredFamilies []string
+}
+
+// Delete marks data for deletion in the store using tombstones
+func (m *Manager) Delete(params *DeleteParams) error {
 	// Parse the query
-	parsed, err := parseDeleteQuery(string(query))
+	parsed, err := parseDeleteQuery(string(params.Query))
 	if err != nil {
 		return err
 	}
 
-	// Lock for writing
-	e.rwMutex.Lock()
-	defer e.rwMutex.Unlock()
-
 	// Check if the row exists
-	row, exists := e.data[parsed.rowKey]
+	row, exists := (*params.Data)[parsed.rowKey]
 	if !exists {
 		return fmt.Errorf("row not found: %s", parsed.rowKey)
 	}

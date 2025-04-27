@@ -55,18 +55,20 @@ func (e *Engine) Handle(conn net.Conn) {
 	defer e.rwMutex.Unlock()
 
 	var response []byte
-	// Always send a response for every operation type
+
 	switch msgType {
 	case protocol.Create:
-		err = e.createFamily(queryBytes)
+		err = e.protocol.Create(&protocol.CreateParams{
+			Query:              queryBytes,
+			ConfiguredFamilies: e.allowedFamilies,
+			CB:                 e.saveAllowedFamilies,
+		})
 		if err != nil {
-			_, err = conn.Write([]byte(err.Error()))
-			if err != nil {
-				fmt.Printf("Error writing response: %v\n", err)
-			}
-			return
+			response = []byte(err.Error())
+		} else {
+			response = []byte("Family created successfully")
 		}
-		response = []byte("Family created successfully")
+
 	case protocol.Write:
 		result, writeErr := e.protocol.Write(&protocol.WriteParams{
 			Query:              queryBytes,
@@ -79,7 +81,6 @@ func (e *Engine) Handle(conn net.Conn) {
 			response = result
 		}
 	case protocol.Read:
-		// TODO: determine if we should lock for a read
 		result, readErr := e.protocol.Read(&protocol.ReadParams{
 			Query:              queryBytes,
 			Data:               e.Data(),
@@ -91,15 +92,16 @@ func (e *Engine) Handle(conn net.Conn) {
 			response = result
 		}
 	case protocol.Delete:
-		err = e.delete(queryBytes)
-		if err != nil {
-			_, err = conn.Write([]byte(err.Error()))
-			if err != nil {
-				fmt.Printf("Error writing response: %v\n", err)
-			}
-			return
+		deleteErr := e.protocol.Delete(&protocol.DeleteParams{
+			Query:              queryBytes,
+			Data:               e.Data(),
+			ConfiguredFamilies: e.allowedFamilies,
+		})
+		if deleteErr != nil {
+			response = []byte(deleteErr.Error())
+		} else {
+			response = []byte("OK")
 		}
-		response = []byte("OK")
 	case protocol.Unknown:
 		err = fmt.Errorf("unknown operation")
 		response = []byte("ERROR: Unknown operation ")

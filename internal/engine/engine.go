@@ -12,7 +12,8 @@ import (
 type query interface {
 	Read(params *protocol.ReadParams) ([]byte, error)
 	Write(params *protocol.WriteParams) ([]byte, error)
-	Delete() error
+	Delete(params *protocol.DeleteParams) error
+	Create(params *protocol.CreateParams) error
 }
 
 type wal interface {

@@ -12,7 +12,7 @@ import (
 func TestParseRead(t *testing.T) {
 	tests := map[string]struct {
 		input       []byte
-		expected    *ReadQuery
+		expected    *readQuery
 		expectedErr error
 	}{
 		"unknown parameter": {
@@ -59,7 +59,7 @@ func TestParseRead(t *testing.T) {
 			input: []byte("key=user:12345 family=main qualifier=firstName latest=5 timestamp=2023" +
 				"-10" +
 				"-01T12:00:00Z"),
-			expected: &ReadQuery{RowKey: "user:12345", Family: "main",
+			expected: &readQuery{RowKey: "user:12345", Family: "main",
 				Qualifiers: []string{"firstName"},
 				Latest:     5, Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
 		},
@@ -68,7 +68,7 @@ func TestParseRead(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			req := require.New(t)
-			result, err := ParseRead(string(tc.input))
+			result, err := parseRead(string(tc.input))
 
 			if tc.expectedErr != nil {
 				t.Logf("received error: %v", err.Error())
@@ -152,7 +152,7 @@ func TestReadQuery_getLatestN(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			r := &ReadQuery{}
+			r := &readQuery{}
 			got := r.getLatestN(values, tc.n)
 
 			req := require.New(t)

@@ -83,7 +83,3 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 
 	return nil, newError(ErrInvalidFormat, "must provide rowKey, rowKeyPrefix, or rowKeyRegex")
 }
-
-func (m *Manager) Delete() error {
-	return nil
-}
