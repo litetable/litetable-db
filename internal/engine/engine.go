@@ -9,6 +9,12 @@ import (
 	"sync"
 )
 
+type query interface {
+	Read(params *protocol.ReadParams) ([]byte, error)
+	Write(data []byte) ([]byte, error)
+	Delete() error
+}
+
 type wal interface {
 	Apply(msgType int, query []byte) error
 	Load(source protocol.DataFormat) error
@@ -24,11 +30,13 @@ type Engine struct {
 
 	allowedFamilies []string // Maps family names to allowed columns
 	familiesFile    string   // Path to store allowed families configuration
+	protocol        query
 }
 
 type Config struct {
-	WAL     wal
-	Storage *storage.Disk
+	WAL      wal
+	Protocol query
+	Storage  *storage.Disk
 }
 
 func (c *Config) validate() error {
@@ -41,6 +49,9 @@ func (c *Config) validate() error {
 		errGrp = append(errGrp, fmt.Errorf("storage is required"))
 	}
 
+	if c.Protocol == nil {
+		errGrp = append(errGrp, fmt.Errorf("protocol is required"))
+	}
 	return errors.Join(errGrp...)
 }
 
@@ -57,6 +68,7 @@ func New(cfg *Config) (*Engine, error) {
 		storage:         cfg.Storage,
 		allowedFamilies: make([]string, 0),
 		familiesFile:    cfg.Storage.FamilyLockFile(),
+		protocol:        cfg.Protocol,
 	}
 
 	// Load allowed families from disk

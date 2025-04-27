@@ -5,8 +5,6 @@ import (
 	"github.com/litetable/litetable-db/internal/protocol"
 )
 
-// Read processes a read query and returns the requested data.
-// Supports all operations allowed by the Litetable protocol.
 func (e *Engine) Read(query []byte) (interface{}, error) {
 	// Parse the query
 	parsed, err := protocol.ParseRead(string(query))

@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	ErrUnknownProtocol  = errors.New("unknown litetable protocol")
 	ErrInvalidFormat    = errors.New("invalid format")
 	ErrUnknownParameter = errors.New("unknown parameter")
 	ErrMissingKey       = errors.New("missing search key")

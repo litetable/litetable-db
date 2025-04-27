@@ -2,7 +2,9 @@ package protocol
 
 import (
 	"errors"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/stretchr/testify/require"
+	"sort"
 	"testing"
 	"time"
 )
@@ -57,9 +59,9 @@ func TestParseRead(t *testing.T) {
 			input: []byte("key=user:12345 family=main qualifier=firstName latest=5 timestamp=2023" +
 				"-10" +
 				"-01T12:00:00Z"),
-			expected: &ReadQuery{rowKey: "user:12345", family: "main",
-				qualifiers: []string{"firstName"},
-				latest:     5, timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
+			expected: &ReadQuery{RowKey: "user:12345", Family: "main",
+				Qualifiers: []string{"firstName"},
+				Latest:     5, Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
 		},
 	}
 
@@ -76,14 +78,101 @@ func TestParseRead(t *testing.T) {
 			}
 
 			req.NotNil(result)
-			req.Equal(tc.expected.rowKey, result.rowKey)
-			req.Equal(tc.expected.family, result.family)
-			req.Equal(tc.expected.qualifiers, result.qualifiers)
-			req.Equal(tc.expected.latest, result.latest)
-			req.Equal(tc.expected.timestamp, result.timestamp)
-			req.Equal(tc.expected.rowKeyPrefix, result.rowKeyPrefix)
-			req.Equal(tc.expected.rowKeyRegex, result.rowKeyRegex)
+			req.Equal(tc.expected.RowKey, result.RowKey)
+			req.Equal(tc.expected.Family, result.Family)
+			req.Equal(tc.expected.Qualifiers, result.Qualifiers)
+			req.Equal(tc.expected.Latest, result.Latest)
+			req.Equal(tc.expected.Timestamp, result.Timestamp)
+			req.Equal(tc.expected.RowKeyPrefix, result.RowKeyPrefix)
+			req.Equal(tc.expected.RowKeyRegex, result.RowKeyRegex)
 			req.Equal(tc.expectedErr, err)
+		})
+	}
+}
+
+func TestReadQuery_getLatestN(t *testing.T) {
+	// test data
+	values := []litetable.TimestampedValue{
+		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
+		{Value: []byte("value2"), Timestamp: time.Date(2023, 10, 1, 12, 0, 1, 0, time.UTC)},
+		{Value: []byte("value3"), Timestamp: time.Date(2023, 10, 1, 12, 0, 2, 0, time.UTC)},
+		{Value: []byte("value4"), Timestamp: time.Date(2023, 10, 1, 12, 0, 3, 0, time.UTC)},
+		{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC)},
+		{Value: []byte("value6"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
+		{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 6, 0, time.UTC)},
+		{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC)},
+		{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC)},
+		{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+	}
+
+	sortedValues := make([]litetable.TimestampedValue, len(values))
+	copy(sortedValues, values)
+	sort.Slice(sortedValues, func(i, j int) bool {
+		return sortedValues[i].Timestamp.After(sortedValues[j].Timestamp)
+	})
+
+	tests := map[string]struct {
+		n      int
+		want   int
+		values []litetable.TimestampedValue
+	}{
+		"get all": {
+			n:      0,
+			want:   len(values),
+			values: sortedValues,
+		},
+		"get 1": {
+			n:    1,
+			want: 1,
+			values: []litetable.TimestampedValue{
+				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+			},
+		},
+		"get 2": {
+			n:    2,
+			want: 2,
+			values: []litetable.TimestampedValue{
+				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+				{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC)},
+			},
+		},
+		"get 6": {
+			n:    6,
+			want: 6,
+			values: []litetable.TimestampedValue{
+				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+				{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC)},
+				{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC)},
+				{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 6, 0, time.UTC)},
+				{Value: []byte("value6"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
+				{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC)},
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := &ReadQuery{}
+			got := r.getLatestN(values, tc.n)
+
+			req := require.New(t)
+			req.Equal(tc.want, len(got))
+
+			// Let's check the index of the slice of tc.values to ensure we have the
+			// right values
+			for i, v := range got {
+				req.Equal(tc.values[i].Value, v.Value)
+				req.Equal(tc.values[i].Timestamp, v.Timestamp)
+			}
+
+			// lets make sure if there is more than 1 value that the times are sorted in newest
+			// to oldest
+			if len(got) > 1 {
+				for i := 0; i < len(got)-1; i++ {
+					req.True(got[i].Timestamp.After(got[i+1].Timestamp),
+						"values are not sorted in descending order")
+				}
+			}
 		})
 	}
 }

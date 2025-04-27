@@ -1,9 +1,8 @@
 // Package protocol defines the protocol of the LiteTable server.
-// Used to enforce incoming and outgoing messages.
+// Used to enforce an incoming message is processed correctly.
 package protocol
 
 import (
-	"errors"
 	"github.com/litetable/litetable-db/internal/litetable"
 )
 
@@ -12,16 +11,12 @@ const (
 	Read
 	Write
 	Delete
-
 	Create
 )
 
+// DataFormat describes the data structure of the LiteTable protocol. Used for both  in-memory
+// writes, WAL and on-disk storage.
 type DataFormat map[string]map[string]litetable.VersionedQualifier
-
-var (
-	// ErrUnknown is returned when the protocol is unknown
-	ErrUnknown = errors.New("unknown litetable protocol")
-)
 
 type Message struct {
 	msg []byte
@@ -30,7 +25,7 @@ type Message struct {
 // Decode decodes a buffer into a litetable protocol message type and returns the payload
 func Decode(buf []byte) (int, []byte, error) {
 	if len(buf) < 5 { // Minimum length for protocols
-		return Unknown, nil, ErrUnknown
+		return Unknown, nil, ErrUnknownProtocol
 	}
 
 	// Early return based on first byte
@@ -54,5 +49,20 @@ func Decode(buf []byte) (int, []byte, error) {
 		}
 	}
 
-	return Unknown, nil, ErrUnknown
+	return Unknown, nil, ErrUnknownProtocol
+}
+
+// isFamilyAllowed checks if the family is allowed in the list of allowed families.
+func isFamilyAllowed(allowed []string, family string) bool {
+	// If no allowed families are defined, don't allow any
+	if len(allowed) == 0 {
+		return false
+	}
+
+	for _, f := range allowed {
+		if f == family {
+			return true
+		}
+	}
+	return false
 }

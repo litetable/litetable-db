@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"github.com/litetable/litetable-db/internal/app"
 	"github.com/litetable/litetable-db/internal/engine"
+	"github.com/litetable/litetable-db/internal/protocol"
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/storage"
 	"github.com/litetable/litetable-db/internal/wal"
@@ -49,6 +50,8 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
+	protocolManager := protocol.New()
+
 	// create a disk storage manager
 	diskStorage, err := storage.NewDiskStorage(&storage.Config{
 		RootDir:        certDir,
@@ -66,8 +69,9 @@ func initialize() (*app.App, error) {
 
 	// create the litetable engine
 	engineHandler, err := engine.New(&engine.Config{
-		WAL:     walManager,
-		Storage: diskStorage,
+		WAL:      walManager,
+		Storage:  diskStorage,
+		Protocol: protocolManager,
 	})
 	if err != nil {
 		return nil, err

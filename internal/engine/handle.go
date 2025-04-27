@@ -77,16 +77,16 @@ func (e *Engine) Handle(conn net.Conn) {
 		b, _ := json.Marshal(got)
 		response = b
 	case protocol.Read:
-		got, err := e.Read(queryBytes)
-		if err != nil {
-			_, err = conn.Write([]byte(err.Error()))
-			if err != nil {
-				fmt.Printf("Error writing response: %v\n", err)
-			}
-			return
+		result, readErr := e.protocol.Read(&protocol.ReadParams{
+			Query:              queryBytes,
+			Data:               e.Data(),
+			ConfiguredFamilies: e.allowedFamilies,
+		})
+		if readErr != nil {
+			response = []byte(readErr.Error())
+		} else {
+			response = result
 		}
-		b, _ := json.Marshal(got)
-		response = b
 	case protocol.Delete:
 		err = e.delete(queryBytes)
 		if err != nil {

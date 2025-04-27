@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -102,6 +103,35 @@ func TestDecode(t *testing.T) {
 			if !tt.wantErr && got != tt.expected {
 				t.Errorf("Decode() = %v, want %v", got, tt.expected)
 			}
+		})
+	}
+}
+
+func Test_isFamilyAllowed(t *testing.T) {
+	tests := map[string]struct {
+		allowed  []string
+		family   string
+		expected bool
+	}{
+		"no allowed families": {
+			allowed: []string{},
+			family:  "family1",
+		},
+		"allowed family": {
+			allowed:  []string{"family1", "family2"},
+			family:   "family1",
+			expected: true,
+		},
+		"not allowed family": {
+			allowed: []string{"family1", "family2"},
+			family:  "family3",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := isFamilyAllowed(tc.allowed, tc.family)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
