@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/protocol"
 	"net"
@@ -51,6 +50,10 @@ func (e *Engine) Handle(conn net.Conn) {
 		return
 	}
 
+	// Lock for writing
+	e.rwMutex.Lock()
+	defer e.rwMutex.Unlock()
+
 	var response []byte
 	// Always send a response for every operation type
 	switch msgType {
@@ -65,17 +68,16 @@ func (e *Engine) Handle(conn net.Conn) {
 		}
 		response = []byte("Family created successfully")
 	case protocol.Write:
-		got, err := e.write(queryBytes)
-		if err != nil {
-			_, err = conn.Write([]byte(err.Error()))
-			if err != nil {
-				fmt.Printf("Error writing response: %v\n", err)
-			}
-			return
+		result, writeErr := e.protocol.Write(&protocol.WriteParams{
+			Query:              queryBytes,
+			Data:               e.Data(),
+			ConfiguredFamilies: e.allowedFamilies,
+		})
+		if writeErr != nil {
+			response = []byte(writeErr.Error())
+		} else {
+			response = result
 		}
-
-		b, _ := json.Marshal(got)
-		response = b
 	case protocol.Read:
 		// TODO: determine if we should lock for a read
 		result, readErr := e.protocol.Read(&protocol.ReadParams{

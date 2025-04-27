@@ -50,12 +50,17 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
-	protocolManager := protocol.New()
-
 	// create a disk storage manager
 	diskStorage, err := storage.NewDiskStorage(&storage.Config{
 		RootDir:        certDir,
 		FlushThreshold: 1000,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	protocolManager, err := protocol.New(&protocol.Config{
+		Storage: diskStorage,
 	})
 	if err != nil {
 		return nil, err

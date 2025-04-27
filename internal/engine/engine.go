@@ -11,7 +11,7 @@ import (
 
 type query interface {
 	Read(params *protocol.ReadParams) ([]byte, error)
-	Write(data []byte) ([]byte, error)
+	Write(params *protocol.WriteParams) ([]byte, error)
 	Delete() error
 }
 
@@ -20,7 +20,8 @@ type wal interface {
 	Load(source protocol.DataFormat) error
 }
 
-// Engine is the main struct that provides the interface to the LiteTable server.
+// Engine is the main struct that provides the interface to the LiteTable server and holds all the
+// data in memory. It is responsible for orchestrating the LiteTable protocol.
 type Engine struct {
 	rwMutex       sync.RWMutex
 	data          protocol.DataFormat // rowKey -> family -> qualifier -> []TimestampedValue

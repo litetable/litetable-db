@@ -3,17 +3,37 @@ package protocol
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
 )
 
-type protocol interface {
-	Read(params *ReadParams) ([]byte, error)
-	Write(data []byte) ([]byte, error)
-	Delete() error
+type dataStorage interface {
+	Write(rowKey, family string, qualifier litetable.VersionedQualifier) error
 }
-type Manager struct{}
 
-func New() *Manager {
-	return &Manager{}
+type Manager struct {
+	dataStorage dataStorage
+}
+
+type Config struct {
+	Storage dataStorage
+}
+
+func (c *Config) validate() error {
+	if c.Storage == nil {
+		return fmt.Errorf("storage is required")
+	}
+	return nil
+}
+
+// New creates a new protocol manager
+func New(cfg *Config) (*Manager, error) {
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+
+	return &Manager{
+		dataStorage: cfg.Storage,
+	}, nil
 }
 
 type ReadParams struct {
@@ -62,10 +82,6 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 	}
 
 	return nil, newError(ErrInvalidFormat, "must provide rowKey, rowKeyPrefix, or rowKeyRegex")
-}
-
-func (m *Manager) Write(data []byte) ([]byte, error) {
-	return nil, nil
 }
 
 func (m *Manager) Delete() error {

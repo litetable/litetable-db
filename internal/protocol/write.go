@@ -1,6 +1,7 @@
-package engine
+package protocol
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"net/url"
@@ -8,38 +9,40 @@ import (
 	"time"
 )
 
+type WriteParams struct {
+	Query              []byte
+	Data               *DataFormat
+	ConfiguredFamilies []string
+}
+
 // write processes a mutation to update the data store
-func (e *Engine) write(query []byte) (*litetable.Row, error) {
+func (m *Manager) Write(params *WriteParams) ([]byte, error) {
 	// Parse the query
-	parsed, err := parseWriteQuery(string(query))
+	parsed, err := parseWriteQuery(string(params.Query))
 	if err != nil {
 		return nil, err
 	}
 
 	// Validate the family is allowed
-	if !e.isFamilyAllowed(parsed.family) {
+	if !isFamilyAllowed(params.ConfiguredFamilies, parsed.family) {
 		return nil, fmt.Errorf("column family not allowed: %s", parsed.family)
 	}
-	
-	// Lock for writing
-	e.rwMutex.Lock()
-	defer e.rwMutex.Unlock()
 
 	// Ensure the row exists
-	if _, exists := e.data[parsed.rowKey]; !exists {
-		e.data[parsed.rowKey] = make(map[string]litetable.VersionedQualifier)
+	if _, exists := (*params.Data)[parsed.rowKey]; !exists {
+		(*params.Data)[parsed.rowKey] = make(map[string]litetable.VersionedQualifier)
 	}
 
 	// Ensure the family exists
-	if _, exists := e.data[parsed.rowKey][parsed.family]; !exists {
-		e.data[parsed.rowKey][parsed.family] = make(litetable.VersionedQualifier)
+	if _, exists := (*params.Data)[parsed.rowKey][parsed.family]; !exists {
+		(*params.Data)[parsed.rowKey][parsed.family] = make(litetable.VersionedQualifier)
 	}
 
 	// Write all qualifier-value pairs with the same timestamp
 	for i, qualifier := range parsed.qualifiers {
 		value := parsed.values[i]
-		e.data[parsed.rowKey][parsed.family][qualifier] = append(
-			e.data[parsed.rowKey][parsed.family][qualifier],
+		(*params.Data)[parsed.rowKey][parsed.family][qualifier] = append(
+			(*params.Data)[parsed.rowKey][parsed.family][qualifier],
 			litetable.TimestampedValue{
 				Value:     value,
 				Timestamp: parsed.timestamp,
@@ -47,8 +50,9 @@ func (e *Engine) write(query []byte) (*litetable.Row, error) {
 		)
 
 		// Also write to disk storage
-		if err := e.storage.Write(parsed.rowKey, parsed.family, e.data[parsed.rowKey][parsed.family]); err != nil {
-			return nil, fmt.Errorf("failed to write to disk storage: %w", err)
+		if storeErr := m.dataStorage.Write(parsed.rowKey, parsed.family,
+			(*params.Data)[parsed.rowKey][parsed.family]); storeErr != nil {
+			return nil, fmt.Errorf("failed to write to disk storage: %w", storeErr)
 		}
 	}
 
@@ -68,7 +72,7 @@ func (e *Engine) write(query []byte) (*litetable.Row, error) {
 		}
 	}
 
-	return result, nil
+	return json.Marshal(result)
 }
 
 type writeQuery struct {
