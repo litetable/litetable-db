@@ -55,7 +55,6 @@ func (e *Engine) Handle(conn net.Conn) {
 	// Always send a response for every operation type
 	switch msgType {
 	case protocol.Write:
-		fmt.Println(string(queryBytes))
 		got, err := e.write(queryBytes)
 		if err != nil {
 			_, err = conn.Write([]byte("ERROR: " + err.Error()))
@@ -68,7 +67,6 @@ func (e *Engine) Handle(conn net.Conn) {
 		b, _ := json.Marshal(got)
 		response = b
 	case protocol.Read:
-		fmt.Println(string(queryBytes))
 		got, err := e.Read(queryBytes)
 		if err != nil {
 			_, err = conn.Write([]byte("ERROR: " + err.Error()))
