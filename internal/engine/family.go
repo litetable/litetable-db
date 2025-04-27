@@ -7,58 +7,6 @@ import (
 	"strings"
 )
 
-func (e *Engine) CreateFamily(query []byte) error {
-	parsed, err := parseCreateFamilyQuery(string(query))
-	if err != nil {
-		return err
-	}
-
-	e.rwMutex.Lock()
-	defer e.rwMutex.Unlock()
-
-	// Check if family already exists
-	for _, family := range e.allowedFamilies {
-		if family == parsed.family {
-			// Family already exists, no need to add it again
-			return nil
-		}
-	}
-
-	// Add the family to allowed families
-	e.allowedFamilies = append(e.allowedFamilies, parsed.family)
-
-	// Persist to disk
-	return e.saveAllowedFamilies()
-}
-
-type createFamilyQuery struct {
-	family  string
-	columns []string
-}
-
-func parseCreateFamilyQuery(input string) (*createFamilyQuery, error) {
-	parts := strings.Fields(input)
-	parsed := &createFamilyQuery{}
-
-	for _, part := range parts {
-		kv := strings.SplitN(part, "=", 2)
-		if len(kv) != 2 {
-			return nil, fmt.Errorf("invalid format: %s", part)
-		}
-
-		key, value := kv[0], kv[1]
-		if key == "family" {
-			parsed.family = value
-		}
-	}
-
-	if parsed.family == "" {
-		return nil, fmt.Errorf("missing family name")
-	}
-
-	return parsed, nil
-}
-
 func (e *Engine) createFamily(query []byte) error {
 	input := string(query)
 	parts := strings.Fields(input)
