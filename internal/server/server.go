@@ -26,6 +26,7 @@ type Server struct {
 	maxConnections int
 	connSemaphore  chan struct{}
 	activeConns    sync.WaitGroup
+	enableTLS      bool
 }
 
 type Config struct {
@@ -33,6 +34,7 @@ type Config struct {
 	Port           string
 	Handler        handler
 	MaxConnections int
+	EnableTLS      bool
 }
 
 func (c *Config) validate() error {
@@ -58,12 +60,19 @@ func New(cfg *Config) (*Server, error) {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*cfg.Certificate},
+	var listener net.Listener
+	var err error
+	if cfg.EnableTLS {
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{*cfg.Certificate},
+			MinVersion:   tls.VersionTLS12,
+		}
+		listener, err = tls.Listen("tcp", ":"+cfg.Port, tlsConfig)
+	} else {
+		listener, err = net.Listen("tcp", ":"+cfg.Port)
 	}
-	listener, err := tls.Listen("tcp", ":"+cfg.Port, tlsConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create listener: %w", err)
 	}
 
 	maxConns := cfg.MaxConnections
@@ -78,6 +87,8 @@ func New(cfg *Config) (*Server, error) {
 		handler:        cfg.Handler,
 		maxConnections: maxConns,
 		connSemaphore:  make(chan struct{}, maxConns), // Initialize the channel
+		enableTLS:      cfg.EnableTLS,
+		activeConns:    sync.WaitGroup{},
 	}, nil
 }
 
@@ -98,7 +109,7 @@ func (s *Server) Start() error {
 					<-s.connSemaphore // Release the connection slot
 					s.activeConns.Done()
 				}()
-				
+
 				fmt.Printf("Handling connection from: %s\n", remoteAddr)
 				s.handler.Handle(conn)
 			}()

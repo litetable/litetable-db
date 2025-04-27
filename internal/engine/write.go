@@ -39,6 +39,11 @@ func (e *Engine) write(query []byte) (*litetable.Row, error) {
 				Timestamp: parsed.timestamp,
 			},
 		)
+
+		// Also write to disk storage
+		if err := e.storage.Write(parsed.rowKey, parsed.family, e.data[parsed.rowKey][parsed.family]); err != nil {
+			return nil, fmt.Errorf("failed to write to disk storage: %w", err)
+		}
 	}
 
 	// Create response with all written values

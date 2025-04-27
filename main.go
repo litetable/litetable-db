@@ -6,6 +6,7 @@ import (
 	"github.com/litetable/litetable-db/internal/app"
 	"github.com/litetable/litetable-db/internal/engine"
 	"github.com/litetable/litetable-db/internal/server"
+	"github.com/litetable/litetable-db/internal/storage"
 	"github.com/litetable/litetable-db/internal/wal"
 	"os"
 	"path/filepath"
@@ -48,6 +49,15 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
+	// create a disk storage manager
+	diskStorage, err := storage.NewDiskStorage(&storage.Config{
+		DataDir:        certDir,
+		FlushThreshold: 1000,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	// create the WAL manager
 	walManager, err := wal.New(&wal.Config{})
 	if err != nil {
@@ -56,7 +66,8 @@ func initialize() (*app.App, error) {
 
 	// create the litetable engine
 	engineHandler, err := engine.New(&engine.Config{
-		WAL: walManager,
+		WAL:     walManager,
+		Storage: diskStorage,
 	})
 	if err != nil {
 		return nil, err
