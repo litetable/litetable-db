@@ -59,9 +59,9 @@ func TestParseRead(t *testing.T) {
 			input: []byte("key=user:12345 family=main qualifier=firstName latest=5 timestamp=2023" +
 				"-10" +
 				"-01T12:00:00Z"),
-			expected: &readQuery{RowKey: "user:12345", Family: "main",
-				Qualifiers: []string{"firstName"},
-				Latest:     5, Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
+			expected: &readQuery{rowKey: "user:12345", family: "main",
+				qualifiers: []string{"firstName"},
+				latest:     5, timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
 		},
 	}
 
@@ -78,13 +78,13 @@ func TestParseRead(t *testing.T) {
 			}
 
 			req.NotNil(result)
-			req.Equal(tc.expected.RowKey, result.RowKey)
-			req.Equal(tc.expected.Family, result.Family)
-			req.Equal(tc.expected.Qualifiers, result.Qualifiers)
-			req.Equal(tc.expected.Latest, result.Latest)
-			req.Equal(tc.expected.Timestamp, result.Timestamp)
-			req.Equal(tc.expected.RowKeyPrefix, result.RowKeyPrefix)
-			req.Equal(tc.expected.RowKeyRegex, result.RowKeyRegex)
+			req.Equal(tc.expected.rowKey, result.rowKey)
+			req.Equal(tc.expected.family, result.family)
+			req.Equal(tc.expected.qualifiers, result.qualifiers)
+			req.Equal(tc.expected.latest, result.latest)
+			req.Equal(tc.expected.timestamp, result.timestamp)
+			req.Equal(tc.expected.rowKeyPrefix, result.rowKeyPrefix)
+			req.Equal(tc.expected.rowKeyRegex, result.rowKeyRegex)
 			req.Equal(tc.expectedErr, err)
 		})
 	}

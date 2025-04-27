@@ -19,12 +19,12 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 		return nil, err
 	}
 
-	if !isFamilyAllowed(params.ConfiguredFamilies, parsed.Family) {
-		return nil, fmt.Errorf("column family does not exist: %s", parsed.Family)
+	if !isFamilyAllowed(params.ConfiguredFamilies, parsed.family) {
+		return nil, fmt.Errorf("column family does not exist: %s", parsed.family)
 	}
 
 	// Case 1: Direct row key lookup
-	if parsed.RowKey != "" {
+	if parsed.rowKey != "" {
 		result, readRowErr := parsed.readRowKey(params.Data)
 		if readRowErr != nil {
 			return nil, readRowErr
@@ -33,7 +33,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 	}
 
 	// Case 2: Row key prefix filtering
-	if parsed.RowKeyPrefix != "" {
+	if parsed.rowKeyPrefix != "" {
 		result, filterRowsErr := parsed.filterRowsByPrefix(params.Data)
 		if filterRowsErr != nil {
 			return nil, filterRowsErr
@@ -42,7 +42,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 	}
 
 	// Case 3: Row key regex matching
-	if parsed.RowKeyRegex != "" {
+	if parsed.rowKeyRegex != "" {
 		result, readRowsErr := parsed.readRowsByRegex(params.Data)
 		if readRowsErr != nil {
 			return nil, readRowsErr
@@ -55,13 +55,13 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 
 // readQuery are the parameters for any supported read query
 type readQuery struct {
-	RowKey       string
-	RowKeyPrefix string
-	RowKeyRegex  string
-	Family       string
-	Qualifiers   []string
-	Latest       int       // Number of most recent versions to return
-	Timestamp    time.Time // Reserved for future use
+	rowKey       string
+	rowKeyPrefix string
+	rowKeyRegex  string
+	family       string
+	qualifiers   []string
+	latest       int       // Number of most recent versions to return
+	timestamp    time.Time // Reserved for future use
 }
 
 // parseRead parses a query and returns a ReadQuery which is used to safely run an operation.
@@ -69,8 +69,8 @@ type readQuery struct {
 func parseRead(input string) (*readQuery, error) {
 	parts := strings.Fields(input)
 	parsed := &readQuery{
-		Qualifiers: []string{},
-		Latest:     0, // 0 means all versions
+		qualifiers: []string{},
+		latest:     0, // 0 means all versions
 	}
 
 	for _, part := range parts {
@@ -85,15 +85,15 @@ func parseRead(input string) (*readQuery, error) {
 
 		switch key {
 		case "key":
-			parsed.RowKey = value
+			parsed.rowKey = value
 		case "prefix":
-			parsed.RowKeyPrefix = value
+			parsed.rowKeyPrefix = value
 		case "regex":
-			parsed.RowKeyRegex = value
+			parsed.rowKeyRegex = value
 		case "family":
-			parsed.Family = value
+			parsed.family = value
 		case "qualifier":
-			parsed.Qualifiers = append(parsed.Qualifiers, value)
+			parsed.qualifiers = append(parsed.qualifiers, value)
 		case "latest":
 			n, err := strconv.Atoi(value)
 			if err != nil {
@@ -104,32 +104,32 @@ func parseRead(input string) (*readQuery, error) {
 				return nil, newError(ErrInvalidFormat,
 					"latest must be greater than 0. received %d", n)
 			}
-			parsed.Latest = n
+			parsed.latest = n
 		case "timestamp":
 			t, err := time.Parse(time.RFC3339, value)
 			if err != nil {
 				return nil, newError(ErrInvalidFormat, "invalid timestamp format: %s", value)
 			}
-			parsed.Timestamp = t
+			parsed.timestamp = t
 		default:
 			return nil, newError(ErrUnknownParameter, "%s", key)
 		}
 	}
 
 	// Validate that at least one search key is provided
-	if parsed.RowKey == "" && parsed.RowKeyPrefix == "" && parsed.RowKeyRegex == "" {
+	if parsed.rowKey == "" && parsed.rowKeyPrefix == "" && parsed.rowKeyRegex == "" {
 		return nil, newError(ErrMissingKey, "missing search key: provide one of key, prefix, or regex")
 	}
 
 	// Validate that exactly one search key type is provided
 	keyCount := 0
-	if parsed.RowKey != "" {
+	if parsed.rowKey != "" {
 		keyCount++
 	}
-	if parsed.RowKeyPrefix != "" {
+	if parsed.rowKeyPrefix != "" {
 		keyCount++
 	}
-	if parsed.RowKeyRegex != "" {
+	if parsed.rowKeyRegex != "" {
 		keyCount++
 	}
 
@@ -140,7 +140,7 @@ func parseRead(input string) (*readQuery, error) {
 	}
 
 	// Family is always required
-	if parsed.Family == "" {
+	if parsed.family == "" {
 		return nil, newError(ErrInvalidFormat, "missing family")
 	}
 
@@ -151,38 +151,38 @@ func parseRead(input string) (*readQuery, error) {
 // is provided in the query, it will return only the latest N versions of the qualifiers.
 func (r *readQuery) readRowKey(data *DataFormat) (*litetable.Row, error) {
 	// Check if the row exists
-	row, exists := (*data)[r.RowKey]
+	row, exists := (*data)[r.rowKey]
 	if !exists {
-		return nil, fmt.Errorf("row not found: %s", r.RowKey)
+		return nil, fmt.Errorf("row not found: %s", r.rowKey)
 	}
 
 	// Check if the family exists
-	family, exists := row[r.Family]
+	family, exists := row[r.family]
 	if !exists {
-		return nil, fmt.Errorf("family not found: %s", r.Family)
+		return nil, fmt.Errorf("family not found: %s", r.family)
 	}
 
 	// Create result container
 	result := &litetable.Row{
-		Key:     r.RowKey,
+		Key:     r.rowKey,
 		Columns: make(map[string]litetable.VersionedQualifier),
 	}
-	result.Columns[r.Family] = make(litetable.VersionedQualifier)
+	result.Columns[r.family] = make(litetable.VersionedQualifier)
 
 	// If no qualifiers specified, return all qualifiers in the family
-	if len(r.Qualifiers) == 0 {
+	if len(r.qualifiers) == 0 {
 		// Copy all qualifiers and their values
 		for qualifier, values := range family {
-			result.Columns[r.Family][qualifier] = r.getLatestN(values, r.Latest)
+			result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
 		}
 	} else {
 		// Return only requested qualifiers
-		for _, qualifier := range r.Qualifiers {
+		for _, qualifier := range r.qualifiers {
 			values, exists := family[qualifier]
 			if !exists {
 				continue // Skip non-existing qualifiers
 			}
-			result.Columns[r.Family][qualifier] = r.getLatestN(values, r.Latest)
+			result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
 		}
 	}
 
@@ -196,10 +196,10 @@ func (r *readQuery) filterRowsByPrefix(data *DataFormat) (map[string]*litetable.
 	results := make(map[string]*litetable.Row)
 
 	for rowKey, rowData := range *data {
-		prefixMatch := strings.HasPrefix(rowKey, r.RowKeyPrefix)
+		prefixMatch := strings.HasPrefix(rowKey, r.rowKeyPrefix)
 		if prefixMatch {
 			// Skip rows that don't have the requested family
-			family, exists := rowData[r.Family]
+			family, exists := rowData[r.family]
 			if !exists {
 				continue
 			}
@@ -209,21 +209,21 @@ func (r *readQuery) filterRowsByPrefix(data *DataFormat) (map[string]*litetable.
 				Key:     rowKey,
 				Columns: make(map[string]litetable.VersionedQualifier),
 			}
-			result.Columns[r.Family] = make(litetable.VersionedQualifier)
+			result.Columns[r.family] = make(litetable.VersionedQualifier)
 
 			// If no qualifiers specified, return all qualifiers in the family
-			if len(r.Qualifiers) == 0 {
+			if len(r.qualifiers) == 0 {
 				for qualifier, values := range family {
-					result.Columns[r.Family][qualifier] = r.getLatestN(values, r.Latest)
+					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
 				}
 			} else {
 				// Return only requested qualifiers
-				for _, qualifier := range r.Qualifiers {
+				for _, qualifier := range r.qualifiers {
 					values, exists := family[qualifier]
 					if !exists {
 						continue // Skip non-existing qualifiers
 					}
-					result.Columns[r.Family][qualifier] = r.getLatestN(values, r.Latest)
+					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
 				}
 			}
 
@@ -232,7 +232,7 @@ func (r *readQuery) filterRowsByPrefix(data *DataFormat) (map[string]*litetable.
 	}
 
 	if len(results) == 0 {
-		return nil, fmt.Errorf("no rows found with prefix: %s", r.RowKeyPrefix)
+		return nil, fmt.Errorf("no rows found with prefix: %s", r.rowKeyPrefix)
 	}
 
 	return results, nil
@@ -243,7 +243,7 @@ func (r *readQuery) filterRowsByPrefix(data *DataFormat) (map[string]*litetable.
 // qualifiers in the family.
 func (r *readQuery) readRowsByRegex(data *DataFormat) (map[string]*litetable.Row, error) {
 
-	regex, err := regexp.Compile(r.RowKeyRegex)
+	regex, err := regexp.Compile(r.rowKeyRegex)
 	if err != nil {
 		return nil, fmt.Errorf("invalid regex pattern: %w", err)
 	}
@@ -253,7 +253,7 @@ func (r *readQuery) readRowsByRegex(data *DataFormat) (map[string]*litetable.Row
 	for rowKey, rowData := range *data {
 		if regex.MatchString(rowKey) {
 			// Skip rows that don't have the requested family
-			family, exists := rowData[r.Family]
+			family, exists := rowData[r.family]
 			if !exists {
 				continue
 			}
@@ -263,21 +263,21 @@ func (r *readQuery) readRowsByRegex(data *DataFormat) (map[string]*litetable.Row
 				Key:     rowKey,
 				Columns: make(map[string]litetable.VersionedQualifier),
 			}
-			result.Columns[r.Family] = make(litetable.VersionedQualifier)
+			result.Columns[r.family] = make(litetable.VersionedQualifier)
 
 			// If no qualifiers specified, return all qualifiers in the family
-			if len(r.Qualifiers) == 0 {
+			if len(r.qualifiers) == 0 {
 				for qualifier, values := range family {
-					result.Columns[r.Family][qualifier] = r.getLatestN(values, r.Latest)
+					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
 				}
 			} else {
 				// Return only requested qualifiers
-				for _, qualifier := range r.Qualifiers {
+				for _, qualifier := range r.qualifiers {
 					values, exists := family[qualifier]
 					if !exists {
 						continue // Skip non-existing qualifiers
 					}
-					result.Columns[r.Family][qualifier] = r.getLatestN(values, r.Latest)
+					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
 				}
 			}
 
@@ -286,7 +286,7 @@ func (r *readQuery) readRowsByRegex(data *DataFormat) (map[string]*litetable.Row
 	}
 
 	if len(results) == 0 {
-		return nil, fmt.Errorf("no rows found matching regex: %s", r.RowKeyRegex)
+		return nil, fmt.Errorf("no rows found matching regex: %s", r.rowKeyRegex)
 	}
 
 	return results, nil

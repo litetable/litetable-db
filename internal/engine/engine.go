@@ -111,7 +111,6 @@ func (e *Engine) Start() error {
 }
 
 func (e *Engine) Stop() error {
-
 	e.rwMutex.Lock()
 	defer e.rwMutex.Unlock()
 
