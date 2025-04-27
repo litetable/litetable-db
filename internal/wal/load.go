@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func (m *Manager) Load(source map[string]map[string]litetable.VersionedQualifier) error {
+func (m *Manager) Load(source protocol.DataFormat) error {
 	filePath, err := m.filePath()
 	if err != nil {
 		return err

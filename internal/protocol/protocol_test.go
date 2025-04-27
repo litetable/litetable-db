@@ -30,6 +30,12 @@ func TestDecode(t *testing.T) {
 			expected: Delete,
 			wantErr:  false,
 		},
+		{
+			name:     "Valid CREATE command",
+			input:    []byte("CREATE database:key"),
+			expected: Create,
+			wantErr:  false,
+		},
 
 		// Invalid commands
 		{

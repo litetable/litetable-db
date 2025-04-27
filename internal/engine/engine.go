@@ -4,19 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/protocol"
 	"github.com/litetable/litetable-db/internal/storage"
 	"sync"
 )
 
 type wal interface {
 	Apply(msgType int, query []byte) error
-	Load(source map[string]map[string]litetable.VersionedQualifier) error
+	Load(source protocol.DataFormat) error
 }
 
 // Engine is the main struct that provides the interface to the LiteTable server.
 type Engine struct {
 	rwMutex       sync.RWMutex
-	data          map[string]map[string]litetable.VersionedQualifier // rowKey -> family -> qualifier -> []TimestampedValue
+	data          protocol.DataFormat // rowKey -> family -> qualifier -> []TimestampedValue
 	maxBufferSize int
 	wal           wal
 	storage       *storage.Disk
@@ -52,7 +53,7 @@ func New(cfg *Config) (*Engine, error) {
 		rwMutex:         sync.RWMutex{},
 		maxBufferSize:   4096,
 		wal:             cfg.WAL,
-		data:            make(map[string]map[string]litetable.VersionedQualifier),
+		data:            make(protocol.DataFormat),
 		storage:         cfg.Storage,
 		allowedFamilies: make([]string, 0),
 		familiesFile:    cfg.Storage.FamilyLockFile(),
@@ -72,7 +73,7 @@ func (e *Engine) Start() error {
 	defer e.rwMutex.Unlock()
 
 	// Clear any existing data to prevent duplication
-	e.data = make(map[string]map[string]litetable.VersionedQualifier)
+	e.data = make(protocol.DataFormat)
 
 	// First load data from disk storage
 	diskData, err := e.storage.LoadFromDisk()
@@ -108,4 +109,8 @@ func (e *Engine) Stop() error {
 
 func (e *Engine) Name() string {
 	return "Litetable Engine"
+}
+
+func (e *Engine) Data() *protocol.DataFormat {
+	return &e.data
 }

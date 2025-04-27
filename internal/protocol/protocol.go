@@ -4,6 +4,7 @@ package protocol
 
 import (
 	"errors"
+	"github.com/litetable/litetable-db/internal/litetable"
 )
 
 const (
@@ -14,6 +15,8 @@ const (
 
 	Create
 )
+
+type DataFormat map[string]map[string]litetable.VersionedQualifier
 
 var (
 	// ErrUnknown is returned when the protocol is unknown
@@ -32,7 +35,8 @@ func Decode(buf []byte) (int, []byte, error) {
 
 	// Early return based on first byte
 	switch buf[0] {
-	case 'R': // READ
+	case
+		'R': // READ
 		if len(buf) >= 5 && buf[1] == 'E' && buf[2] == 'A' && buf[3] == 'D' && buf[4] == ' ' {
 			return Read, buf[5:], nil
 		}
