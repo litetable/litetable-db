@@ -77,6 +77,7 @@ func (e *Engine) Handle(conn net.Conn) {
 		b, _ := json.Marshal(got)
 		response = b
 	case protocol.Read:
+		// TODO: determine if we should lock for a read
 		result, readErr := e.protocol.Read(&protocol.ReadParams{
 			Query:              queryBytes,
 			Data:               e.Data(),

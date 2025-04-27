@@ -25,7 +25,7 @@ type ReadParams struct {
 // Read applies a read query over a datasource following the Litetable protocol.
 func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 	// Parse the query
-	parsed, err := ParseRead(string(params.Query))
+	parsed, err := parseRead(string(params.Query))
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 
 	// Case 1: Direct row key lookup
 	if parsed.RowKey != "" {
-		result, readRowErr := parsed.ReadRowKey(params.Data)
+		result, readRowErr := parsed.readRowKey(params.Data)
 		if readRowErr != nil {
 			return nil, readRowErr
 		}
@@ -45,7 +45,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 
 	// Case 2: Row key prefix filtering
 	if parsed.RowKeyPrefix != "" {
-		result, filterRowsErr := parsed.FilterRowsByPrefix(params.Data)
+		result, filterRowsErr := parsed.filterRowsByPrefix(params.Data)
 		if filterRowsErr != nil {
 			return nil, filterRowsErr
 		}
@@ -54,7 +54,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 
 	// Case 3: Row key regex matching
 	if parsed.RowKeyRegex != "" {
-		result, readRowsErr := parsed.ReadRowsByRegex(params.Data)
+		result, readRowsErr := parsed.readRowsByRegex(params.Data)
 		if readRowsErr != nil {
 			return nil, readRowsErr
 		}
