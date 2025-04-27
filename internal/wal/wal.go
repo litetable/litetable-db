@@ -114,7 +114,6 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	input := string(b)
 	parts := splitParts(input)
 
-	fmt.Printf("Parsed parts: %v\n", parts)
 	entry := &Entry{
 		Operation: msgType,
 		Columns:   make(map[string]map[string][]byte),
@@ -124,7 +123,7 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	// Special handling for CREATE operation
 	if msgType == protocol.Create {
 		// Parse the family=columns part
-		for i := 0; i < len(parts); i++ { // Start from index 0
+		for i := 0; i < len(parts); i++ {
 			kv := strings.SplitN(parts[i], "=", 2)
 			if len(kv) != 2 {
 				return nil, fmt.Errorf("invalid format at %s", parts[i])
@@ -132,26 +131,29 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 
 			key, value := kv[0], kv[1]
 
-			fmt.Println("Key:", key, "Value:", value)
 			if key == "family" {
-				entry.Family = value // Should be the actual value, not "key" or "family"
-				columns := strings.Split(value, ",")
-				entry.Columns[entry.Family] = make(map[string][]byte) // Use entry.Family here
-				for _, col := range columns {
-					col = strings.TrimSpace(col)
-					if col != "" {
-						entry.Columns[entry.Family][col] = []byte{}
+				// Store the raw family value in the WAL entry
+				entry.Family = value
+
+				// Split the family names and create entries for each
+				familyNames := strings.Split(value, ",")
+				for _, familyName := range familyNames {
+					familyName = strings.TrimSpace(familyName)
+					if familyName == "" {
+						continue
 					}
+
+					// Each family name gets its own column map in the WAL
+					entry.Columns[familyName] = make(map[string][]byte)
 				}
 			}
 		}
 
-		// Add better validation
 		if entry.Family == "" {
 			return nil, fmt.Errorf("missing family name")
 		}
 
-		if len(entry.Columns) == 0 || len(entry.Columns[entry.Family]) == 0 {
+		if len(entry.Columns) == 0 {
 			return nil, fmt.Errorf("missing columns in family definition")
 		}
 
@@ -171,7 +173,6 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 		key, value := kv[0], kv[1]
 		key = strings.TrimLeft(key, "-")
 
-		// Rest of your existing code
 		switch key {
 		case "key":
 			entry.RowKey = value
