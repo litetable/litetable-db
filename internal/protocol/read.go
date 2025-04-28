@@ -29,6 +29,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 		if readRowErr != nil {
 			return nil, readRowErr
 		}
+
 		return json.Marshal(result)
 	}
 

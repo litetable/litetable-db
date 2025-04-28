@@ -102,6 +102,8 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		ttl:        0, // Default to no automatic expiration
 	}
 
+	ttlProvided := false
+
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) != 2 {
@@ -119,6 +121,7 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		case "qualifier":
 			parsed.qualifiers = append(parsed.qualifiers, value)
 		case "ttl":
+			ttlProvided = true
 			ttlSec, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid ttl value: %s", value)
@@ -129,6 +132,11 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		}
 	}
 
+	// enforce ttl is required
+	if !ttlProvided {
+		return nil, newError(ErrInvalidFormat, "Delete requires ttl")
+	}
+	
 	// Validate required fields
 	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")

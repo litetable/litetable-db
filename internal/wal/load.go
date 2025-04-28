@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func (m *Manager) Load(source protocol.DataFormat) error {
+func (m *Manager) Load(source *protocol.DataFormat) error {
 	filePath, err := m.filePath()
 	if err != nil {
 		return err
@@ -41,18 +41,18 @@ func (m *Manager) Load(source protocol.DataFormat) error {
 
 		case protocol.Write:
 			// Process write operations normally
-			if _, exists := source[entry.RowKey]; !exists {
-				source[entry.RowKey] = make(map[string]litetable.VersionedQualifier)
+			if _, exists := (*source)[entry.RowKey]; !exists {
+				(*source)[entry.RowKey] = make(map[string]litetable.VersionedQualifier)
 			}
 
 			for family, qualifiers := range entry.Columns {
-				if _, exists := source[entry.RowKey][family]; !exists {
-					source[entry.RowKey][family] = make(litetable.VersionedQualifier)
+				if _, exists := (*source)[entry.RowKey][family]; !exists {
+					(*source)[entry.RowKey][family] = make(litetable.VersionedQualifier)
 				}
 
 				for qualifier, value := range qualifiers {
-					source[entry.RowKey][family][qualifier] = append(
-						source[entry.RowKey][family][qualifier],
+					(*source)[entry.RowKey][family][qualifier] = append(
+						(*source)[entry.RowKey][family][qualifier],
 						litetable.TimestampedValue{
 							Value:     value,
 							Timestamp: entry.Timestamp,
@@ -65,14 +65,14 @@ func (m *Manager) Load(source protocol.DataFormat) error {
 			// Instead of adding tombstones, directly prune the data from memory
 			if entry.Family == "" {
 				// Delete entire row
-				delete(source, entry.RowKey)
-			} else if row, exists := source[entry.RowKey]; exists {
+				delete((*source), entry.RowKey)
+			} else if row, exists := (*source)[entry.RowKey]; exists {
 				if len(entry.Columns[entry.Family]) == 0 {
 					// Delete entire family
 					delete(row, entry.Family)
 					// Clean up empty row
 					if len(row) == 0 {
-						delete(source, entry.RowKey)
+						delete((*source), entry.RowKey)
 					}
 				} else {
 					// Delete specific qualifiers
@@ -85,7 +85,7 @@ func (m *Manager) Load(source protocol.DataFormat) error {
 							delete(row, entry.Family)
 							// Clean up empty row
 							if len(row) == 0 {
-								delete(source, entry.RowKey)
+								delete((*source), entry.RowKey)
 							}
 						}
 					}

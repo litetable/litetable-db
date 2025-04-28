@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/protocol"
 	"github.com/litetable/litetable-db/internal/storage"
 	"os"
@@ -20,7 +19,7 @@ type query interface {
 
 type wal interface {
 	Apply(msgType int, query []byte) error
-	Load(source protocol.DataFormat) error
+	Load(source *protocol.DataFormat) error
 }
 
 // Engine is the main struct that provides the interface to the LiteTable server and holds all the
@@ -83,7 +82,7 @@ func New(cfg *Config) (*Engine, error) {
 	return e, nil
 }
 
-// Start replays the WAL to the LiteTable in-memory data source.
+// Start loads the data into memory.
 func (e *Engine) Start() error {
 	e.rwMutex.Lock()
 	defer e.rwMutex.Unlock()
@@ -91,20 +90,24 @@ func (e *Engine) Start() error {
 	// Clear any existing data to prevent duplication
 	e.data = make(protocol.DataFormat)
 
-	// First load data from disk storage
-	diskData, err := e.storage.LoadFromDisk()
-	if err != nil {
-		return fmt.Errorf("failed to load data from disk: %w", err)
-	}
-
-	// Populate engine's in-memory data from disk storage
-	for rowKey, families := range diskData {
-		if e.data[rowKey] == nil {
-			e.data[rowKey] = make(map[string]litetable.VersionedQualifier)
-		}
-		for family, qualifier := range families {
-			e.data[rowKey][family] = qualifier
-		}
+	// // First load data from disk storage
+	// diskData, err := e.storage.LoadFromDisk()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to load data from disk: %w", err)
+	// }
+	//
+	// // Populate engine's in-memory data from disk storage
+	// for rowKey, families := range diskData {
+	// 	if e.data[rowKey] == nil {
+	// 		e.data[rowKey] = make(map[string]litetable.VersionedQualifier)
+	// 	}
+	// 	for family, qualifier := range families {
+	// 		e.data[rowKey][family] = qualifier
+	// 	}
+	// }
+	// Load data from Write Ahead Log (WAL)
+	if err := e.wal.Load(e.Data()); err != nil {
+		return fmt.Errorf("failed to load data from WAL: %w", err)
 	}
 	return nil
 }

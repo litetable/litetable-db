@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/protocol"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +25,8 @@ type Entry struct {
 	Family      string                       `json:"family"`
 	Columns     map[string]map[string][]byte `json:"cols"` // family -> qualifier -> value
 	Timestamp   time.Time                    `json:"timestamp"`
-	IsTombstone bool                         `json:"isTombstone,omitempty"` // Add this field
+	IsTombstone bool                         `json:"isTombstone,omitempty"`
+	ExpiresAt   *time.Time                   `json:"expiresAt,omitempty"`
 }
 
 type Manager struct {
@@ -163,8 +166,11 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	}
 
 	// Existing code for other operations
-	var family string
-	var currentQualifier string
+	var (
+		family           string
+		currentQualifier string
+		ttl              time.Duration
+	)
 
 	for i := 0; i < len(parts); i++ {
 		kv := strings.SplitN(parts[i], "=", 2)
@@ -175,15 +181,21 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 		key, value := kv[0], kv[1]
 		key = strings.TrimLeft(key, "-")
 
+		// Decode URL-encoded values
+		decodedValue, err := url.QueryUnescape(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode value: %s", err)
+		}
+
 		switch key {
 		case "key":
-			entry.RowKey = value
+			entry.RowKey = decodedValue
 		case "family":
-			family = value
-			entry.Family = value
+			family = decodedValue
+			entry.Family = decodedValue
 			entry.Columns[family] = make(map[string][]byte)
 		case "qualifier":
-			currentQualifier = value
+			currentQualifier = decodedValue
 			// For delete operations, we explicitly mark the qualifier in the WAL
 			if msgType == protocol.Delete && family != "" {
 				if _, ok := entry.Columns[family]; !ok {
@@ -204,8 +216,17 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 				entry.Columns[family] = make(map[string][]byte)
 			}
 
-			entry.Columns[family][currentQualifier] = []byte(value)
+			entry.Columns[family][currentQualifier] = []byte(decodedValue)
 			currentQualifier = "" // Reset for next qualifier
+		case "ttl":
+			// For delete operations, capture TTL
+			if msgType == protocol.Delete {
+				ttlSec, err := strconv.ParseInt(decodedValue, 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("invalid ttl value: %s", decodedValue)
+				}
+				ttl = time.Duration(ttlSec) * time.Second
+			}
 		default:
 			// Ignore other parameters for WAL purposes
 		}
@@ -214,6 +235,12 @@ func (m *Manager) parse(msgType int, b []byte) (*Entry, error) {
 	// Modify validation for other operations
 	if entry.RowKey == "" {
 		return nil, fmt.Errorf("missing key")
+	}
+
+	// Set expiration time if TTL is provided
+	if msgType == protocol.Delete && ttl > 0 {
+		expiresAt := entry.Timestamp.Add(ttl)
+		entry.ExpiresAt = &expiresAt
 	}
 
 	// For delete operations, family might be empty if deleting an entire row
