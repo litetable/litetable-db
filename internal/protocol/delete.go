@@ -12,6 +12,7 @@ type DeleteParams struct {
 	Query              []byte
 	Data               *DataFormat
 	ConfiguredFamilies []string
+	Timestamp          time.Time
 }
 
 // Delete marks data for deletion in the store using tombstones

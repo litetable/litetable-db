@@ -293,23 +293,32 @@ func (r *readQuery) readRowsByRegex(data *DataFormat) (map[string]*litetable.Row
 }
 
 // getLatestN returns the latest N values from a slice of TimestampedValue.
-func (r *readQuery) getLatestN(values []litetable.TimestampedValue,
-	n int) []litetable.TimestampedValue {
-
-	// Make a copy of the values to avoid modifying the original
-	valuesCopy := make([]litetable.TimestampedValue, 0, len(values))
-
-	// Only include non-tombstone values
-	for i := range values {
-		if !values[i].IsTombstone {
-			valuesCopy = append(valuesCopy, values[i])
-		}
+func (r *readQuery) getLatestN(values []litetable.TimestampedValue, n int) []litetable.TimestampedValue {
+	if len(values) == 0 {
+		return nil
 	}
 
 	// Sort by timestamp descending (newest first)
-	sort.Slice(valuesCopy, func(i, j int) bool {
-		return valuesCopy[i].Timestamp.After(valuesCopy[j].Timestamp)
+	sort.Slice(values, func(i, j int) bool {
+		return values[i].Timestamp.After(values[j].Timestamp)
 	})
+
+	// Filter out tombstones and collect valid values
+	valuesCopy := make([]litetable.TimestampedValue, 0, len(values))
+
+	for i := range values {
+		if values[i].IsTombstone {
+			// When we hit a tombstone, we stop processing older values
+			// This effectively "deletes" all older values
+			break
+		}
+		valuesCopy = append(valuesCopy, values[i])
+	}
+
+	// If no valid values after filtering, return nil
+	if len(valuesCopy) == 0 {
+		return nil
+	}
 
 	// If n is 0 or greater than the length, return all values
 	if n <= 0 || n >= len(valuesCopy) {

@@ -1,6 +1,7 @@
 package litetable
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -8,12 +9,12 @@ import (
 type TimestampedValue struct {
 	Value       []byte    `json:"value"`
 	Timestamp   time.Time `json:"timestamp"`
-	IsTombstone bool      `json:"tombstone"` // if the value is slated for deletion
-	ExpiresAt   time.Time `json:"expires"`   // the time in which the value will expire
+	IsTombstone bool      `json:"tombstone,omitempty"` // if the value is slated for deletion
+	ExpiresAt   time.Time `json:"expiresAt,omitempty"` // the time in which the value will expire
 }
 
 // VersionedQualifier maps qualifiers to their timestamped values
-type VersionedQualifier map[string][]TimestampedValue
+type VersionedQualifier map[string][]TimestampedValue // family → qualifier → []TimestampedValue
 
 // Row defines a row of data in LiteTable:
 //
@@ -36,6 +37,41 @@ type VersionedQualifier map[string][]TimestampedValue
 //
 // Qualifiers are defined by your codes' logic.
 type Row struct {
-	Key     string                        `json:"key"`
-	Columns map[string]VersionedQualifier `json:"cols"` // family → qualifier → []TimestampedValue
+	Key string `json:"key"`
+	// family → qualifier → []TimestampedValue
+	Columns map[string]VersionedQualifier `json:"cols,omitempty"`
+}
+
+// Define a custom type for marshaling that uses a pointer for ExpiresAt
+type customTimestampedValue struct {
+	Value     []byte    `json:"value"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// MarshalJSON customizes the JSON marshaling for VersionedQualifier to exclude empty qualifiers
+// that are tombstones.
+func (vq VersionedQualifier) MarshalJSON() ([]byte, error) {
+
+	filtered := make(map[string][]customTimestampedValue)
+
+	for qualifier, values := range vq {
+		filteredValues := make([]customTimestampedValue, 0, len(values))
+		for _, v := range values {
+			if !v.IsTombstone {
+				customValue := customTimestampedValue{
+					Value:     v.Value,
+					Timestamp: v.Timestamp,
+				}
+
+				filteredValues = append(filteredValues, customValue)
+			}
+		}
+
+		// Only include qualifiers with non-empty values
+		if len(filteredValues) > 0 {
+			filtered[qualifier] = filteredValues
+		}
+	}
+
+	return json.Marshal(filtered)
 }
