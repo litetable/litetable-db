@@ -114,7 +114,6 @@ func (ds *Disk) Start() error {
 		return fmt.Errorf("failed to read snapshot %s: %w", latest, err)
 	}
 
-	fmt.Printf("Loading snapshot %s\n", len(dataBytes))
 	var loadedData protocol.DataFormat
 	if err := json.Unmarshal(dataBytes, &loadedData); err != nil {
 		return fmt.Errorf("failed to parse snapshot %s: %w", latest, err)
