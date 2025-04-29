@@ -25,6 +25,8 @@ type Disk struct {
 
 	snapshotDuration time.Duration
 	snapshotTimer    *time.Timer
+
+	latestSnapshotFile string
 }
 
 type Config struct {
@@ -106,11 +108,13 @@ func (ds *Disk) Start() error {
 		}
 	}
 
+	ds.latestSnapshotFile = latest
 	dataBytes, err := os.ReadFile(latest)
 	if err != nil {
 		return fmt.Errorf("failed to read snapshot %s: %w", latest, err)
 	}
 
+	fmt.Printf("Loading snapshot %s\n", len(dataBytes))
 	var loadedData protocol.DataFormat
 	if err := json.Unmarshal(dataBytes, &loadedData); err != nil {
 		return fmt.Errorf("failed to parse snapshot %s: %w", latest, err)
@@ -153,6 +157,7 @@ func (ds *Disk) SaveSnapshot() error {
 		return fmt.Errorf("failed to serialize snapshot: %w", err)
 	}
 
+	fmt.Println("saving snapshot", filename, len(dataBytes))
 	if err := os.WriteFile(filename, dataBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write snapshot file: %w", err)
 	}

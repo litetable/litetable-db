@@ -1,7 +1,6 @@
 package litetable
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -48,30 +47,30 @@ type customTimestampedValue struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// MarshalJSON customizes the JSON marshaling for VersionedQualifier to exclude empty qualifiers
-// that are tombstones.
-func (vq VersionedQualifier) MarshalJSON() ([]byte, error) {
-
-	filtered := make(map[string][]customTimestampedValue)
-
-	for qualifier, values := range vq {
-		filteredValues := make([]customTimestampedValue, 0, len(values))
-		for _, v := range values {
-			if !v.IsTombstone {
-				customValue := customTimestampedValue{
-					Value:     v.Value,
-					Timestamp: v.Timestamp,
-				}
-
-				filteredValues = append(filteredValues, customValue)
-			}
-		}
-
-		// Only include qualifiers with non-empty values
-		if len(filteredValues) > 0 {
-			filtered[qualifier] = filteredValues
-		}
-	}
-
-	return json.Marshal(filtered)
-}
+// // MarshalJSON customizes the JSON marshaling for VersionedQualifier to exclude empty qualifiers
+// // that are tombstones.
+// func (vq VersionedQualifier) MarshalJSON() ([]byte, error) {
+//
+// 	filtered := make(map[string][]customTimestampedValue)
+//
+// 	for qualifier, values := range vq {
+// 		filteredValues := make([]customTimestampedValue, 0, len(values))
+// 		for _, v := range values {
+// 			if !v.IsTombstone {
+// 				customValue := customTimestampedValue{
+// 					Value:     v.Value,
+// 					Timestamp: v.Timestamp,
+// 				}
+//
+// 				filteredValues = append(filteredValues, customValue)
+// 			}
+// 		}
+//
+// 		// Only include qualifiers with non-empty values
+// 		if len(filteredValues) > 0 {
+// 			filtered[qualifier] = filteredValues
+// 		}
+// 	}
+//
+// 	return json.Marshal(filtered)
+// }
