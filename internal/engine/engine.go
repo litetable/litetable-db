@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/protocol"
 	"github.com/litetable/litetable-db/internal/storage"
+	wal2 "github.com/litetable/litetable-db/internal/wal"
 	"os"
 	"sync"
 )
@@ -18,8 +19,7 @@ type query interface {
 }
 
 type wal interface {
-	Apply(msgType int, query []byte) error
-	Load(source *protocol.DataFormat) error
+	Apply(e *wal2.Entry) error
 }
 
 // Engine is the main struct that provides the interface to the LiteTable server and holds all the
@@ -89,7 +89,7 @@ func (e *Engine) Start() error {
 func (e *Engine) Stop() error {
 	e.rwMutex.Lock()
 	defer e.rwMutex.Unlock()
-	
+
 	return nil
 }
 

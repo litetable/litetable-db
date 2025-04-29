@@ -3,7 +3,9 @@ package engine
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/protocol"
+	wal2 "github.com/litetable/litetable-db/internal/wal"
 	"net"
+	"time"
 )
 
 // Handle implements the server.handler interface, allowing the engine to be used to respond
@@ -41,14 +43,21 @@ func (e *Engine) Handle(conn net.Conn) {
 		return
 	}
 
-	// before processing any query, write to the WAL
-	if err = e.wal.Apply(msgType, queryBytes); err != nil {
-		fmt.Printf("Failed to apply entry: %v\n", err)
-		_, err = conn.Write([]byte(err.Error()))
-		if err != nil {
-			fmt.Printf("Error writing response: %v\n", err)
+	// Only append to the WAL if this is not a READ
+	if msgType != protocol.Read {
+		newEntry := &wal2.Entry{
+			Protocol:  msgType,
+			Query:     queryBytes,
+			Timestamp: time.Now(),
 		}
-		return
+		if err = e.wal.Apply(newEntry); err != nil {
+			fmt.Printf("Failed to apply entry: %v\n", err)
+			_, err = conn.Write([]byte(err.Error()))
+			if err != nil {
+				fmt.Printf("Error writing response: %v\n", err)
+			}
+			return
+		}
 	}
 
 	// Lock for writing
