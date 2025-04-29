@@ -178,24 +178,3 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 
 	return parsed, nil
 }
-
-func isRowFullyTombstoned(row map[string]litetable.VersionedQualifier) bool {
-	for _, family := range row {
-		for _, versions := range family {
-			if len(versions) == 0 {
-				continue
-			}
-
-			// Sort in descending order by timestamp (just to be safe)
-			sort.SliceStable(versions, func(i, j int) bool {
-				return versions[i].Timestamp.After(versions[j].Timestamp)
-			})
-
-			// Check if the latest version is a tombstone
-			if !versions[0].IsTombstone {
-				return false
-			}
-		}
-	}
-	return true
-}

@@ -74,7 +74,7 @@ func (m *Manager) Stop() error {
 }
 
 func (m *Manager) Name() string {
-	return "disk-storage"
+	return "Disk Storage"
 }
 
 // GetData Provides access to the data

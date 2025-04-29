@@ -6,6 +6,7 @@ import (
 	"github.com/litetable/litetable-db/internal/app"
 	"github.com/litetable/litetable-db/internal/engine"
 	"github.com/litetable/litetable-db/internal/protocol"
+	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/storage"
 	"github.com/litetable/litetable-db/internal/wal"
@@ -60,6 +61,17 @@ func initialize() (*app.App, error) {
 	}
 
 	deps = append(deps, diskStorage)
+
+	// create a new Reaper (aka Garbage Collector)
+	reaperGC, err := reaper.New(&reaper.Config{
+		Storage:    diskStorage,
+		GCInterval: 10,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	deps = append(deps, reaperGC)
 
 	protocolManager, err := protocol.New(&protocol.Config{})
 	if err != nil {
