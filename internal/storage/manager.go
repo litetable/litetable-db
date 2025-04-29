@@ -1,0 +1,70 @@
+package storage
+
+import (
+	"errors"
+	"fmt"
+	"github.com/litetable/litetable-db/internal/protocol"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+)
+
+const (
+	dataDiskName       = ".table"
+	dataFamilyLockFile = "config.families.json"
+)
+
+// Manager handles persistent storage operations to a disk
+type Manager struct {
+	rootDir string
+	dataDir string
+	data    protocol.DataFormat
+	lock    sync.RWMutex
+
+	snapshotDuration time.Duration
+	snapshotTimer    *time.Timer
+
+	latestSnapshotFile string
+}
+
+type Config struct {
+	RootDir        string
+	FlushThreshold int
+}
+
+func (c *Config) validate() error {
+	var errGrp []error
+	if c.RootDir == "" {
+		errGrp = append(errGrp, fmt.Errorf("data directory is required"))
+	}
+	if c.FlushThreshold <= 0 {
+		errGrp = append(errGrp, fmt.Errorf("flush threshold must be greater than 0"))
+	}
+
+	return errors.Join(errGrp...)
+}
+
+// New creates a new disk storage manager
+func New(cfg *Config) (*Manager, error) {
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+
+	dirName := filepath.Join(cfg.RootDir, dataDiskName)
+	if err := os.MkdirAll(dirName, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create data directory: %w", err)
+	}
+
+	m := &Manager{
+		rootDir:          cfg.RootDir,
+		dataDir:          dirName,
+		data:             make(protocol.DataFormat),
+		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
+	}
+
+	// Start background flush timer
+	m.snapshotTimer = time.AfterFunc(m.snapshotDuration, m.backgroundFlush)
+
+	return m, nil
+}

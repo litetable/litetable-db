@@ -29,7 +29,7 @@ type Engine struct {
 	data          protocol.DataFormat // rowKey -> family -> qualifier -> []TimestampedValue
 	maxBufferSize int
 	wal           wal
-	storage       *storage.Disk
+	storage       *storage.Manager
 
 	allowedFamilies []string // Maps family names to allowed columns
 	familiesFile    string   // Path to store allowed families configuration
@@ -39,7 +39,7 @@ type Engine struct {
 type Config struct {
 	WAL      wal
 	Protocol query
-	Storage  *storage.Disk
+	Storage  *storage.Manager
 }
 
 func (c *Config) validate() error {
