@@ -11,7 +11,7 @@ import (
 
 type WriteParams struct {
 	Query              []byte
-	Data               *DataFormat
+	Data               *litetable.Data
 	ConfiguredFamilies []string
 }
 

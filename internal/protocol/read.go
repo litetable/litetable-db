@@ -150,7 +150,7 @@ func parseRead(input string) (*readQuery, error) {
 
 // readRowKey reads a single row by its key and returns the requested data. If the latest filter
 // is provided in the query, it will return only the latest N versions of the qualifiers.
-func (r *readQuery) readRowKey(data *DataFormat) (*litetable.Row, error) {
+func (r *readQuery) readRowKey(data *litetable.Data) (*litetable.Row, error) {
 	// Check if the row exists
 	row, exists := (*data)[r.rowKey]
 	if !exists {
@@ -193,7 +193,7 @@ func (r *readQuery) readRowKey(data *DataFormat) (*litetable.Row, error) {
 // filterRowsByPrefix reads from all rows with the specified prefix and returns the requested data.
 // If the latest filter is provided in the query, it will return only the latest N versions of all
 // qualifiers in the family.
-func (r *readQuery) filterRowsByPrefix(data *DataFormat) (map[string]*litetable.Row, error) {
+func (r *readQuery) filterRowsByPrefix(data *litetable.Data) (map[string]*litetable.Row, error) {
 	results := make(map[string]*litetable.Row)
 
 	for rowKey, rowData := range *data {
@@ -242,7 +242,7 @@ func (r *readQuery) filterRowsByPrefix(data *DataFormat) (map[string]*litetable.
 // readRowsByRegex reads from all rows matching the specified regex and returns the requested data.
 // If the latest filter is provided in the query, it will return only the latest N versions of all
 // qualifiers in the family.
-func (r *readQuery) readRowsByRegex(data *DataFormat) (map[string]*litetable.Row, error) {
+func (r *readQuery) readRowsByRegex(data *litetable.Data) (map[string]*litetable.Row, error) {
 
 	regex, err := regexp.Compile(r.rowKeyRegex)
 	if err != nil {

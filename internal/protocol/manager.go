@@ -1,27 +1,30 @@
 package protocol
 
 import (
+	"errors"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/reaper"
 )
 
-type dataStorage interface {
-	Write(rowKey, family string, qualifier litetable.VersionedQualifier) error
+type garbageCollector interface {
+	Reap(p *reaper.GCParams)
 }
 
 type Manager struct {
-	dataStorage dataStorage
-	defaultTTL  int64
+	garbageCollector garbageCollector
+	defaultTTL       int64
 }
 
 type Config struct {
-	Storage dataStorage
+	GarbageCollector garbageCollector
 }
 
 func (c *Config) validate() error {
-	// if c.Storage == nil {
-	// 	return fmt.Errorf("storage is required")
-	// }
-	return nil
+	var errGrp []error
+	if c.GarbageCollector == nil {
+		errGrp = append(errGrp, errors.New("garbage collector cannot be nil"))
+	}
+	return errors.Join(errGrp...)
 }
 
 // New creates a new protocol manager
@@ -31,13 +34,13 @@ func New(cfg *Config) (*Manager, error) {
 	}
 
 	return &Manager{
-		// dataStorage: cfg.Storage,
-		defaultTTL: 3600, // configure default for 1 hour
+		garbageCollector: cfg.GarbageCollector,
+		defaultTTL:       3600, // configure default for 1 hour
 	}, nil
 }
 
 type ReadParams struct {
 	Query              []byte
-	Data               *DataFormat
+	Data               *litetable.Data
 	ConfiguredFamilies []string
 }

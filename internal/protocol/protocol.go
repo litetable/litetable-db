@@ -2,10 +2,6 @@
 // Used to enforce an incoming message is processed correctly.
 package protocol
 
-import (
-	"github.com/litetable/litetable-db/internal/litetable"
-)
-
 const (
 	Unknown = iota
 	Read
@@ -13,10 +9,6 @@ const (
 	Delete
 	Create
 )
-
-// DataFormat describes the data structure of the LiteTable protocol. Used for both  in-memory
-// writes, WAL and on-disk storage.
-type DataFormat map[string]map[string]litetable.VersionedQualifier
 
 type Message struct {
 	msg []byte

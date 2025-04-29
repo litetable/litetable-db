@@ -3,7 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/protocol"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"os"
 	"path/filepath"
 	"time"
@@ -53,7 +53,7 @@ func (m *Manager) Start() error {
 		return fmt.Errorf("failed to read snapshot %s: %w", latest, err)
 	}
 
-	var loadedData protocol.DataFormat
+	var loadedData litetable.Data
 	if err := json.Unmarshal(dataBytes, &loadedData); err != nil {
 		return fmt.Errorf("failed to parse snapshot %s: %w", latest, err)
 	}
@@ -78,24 +78,22 @@ func (m *Manager) Name() string {
 }
 
 // GetData Provides access to the data
-func (m *Manager) GetData() *protocol.DataFormat {
+func (m *Manager) GetData() *litetable.Data {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	return &m.data
 }
 
 func (m *Manager) SaveSnapshot() error {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-
 	filename := filepath.Join(m.dataDir, fmt.Sprintf("snapshot-%d.db", time.Now().UnixNano()))
-
 	dataBytes, err := json.Marshal(m.data)
 	if err != nil {
 		return fmt.Errorf("failed to serialize snapshot: %w", err)
 	}
 
-	fmt.Println("saving snapshot", filename, len(dataBytes))
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
 	if err := os.WriteFile(filename, dataBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write snapshot file: %w", err)
 	}

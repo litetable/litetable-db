@@ -40,3 +40,5 @@ type Row struct {
 	// family → qualifier → []TimestampedValue
 	Columns map[string]VersionedQualifier `json:"cols,omitempty"`
 }
+
+type Data map[string]map[string]VersionedQualifier

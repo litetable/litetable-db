@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/protocol"
 	"github.com/litetable/litetable-db/internal/storage"
 	wal2 "github.com/litetable/litetable-db/internal/wal"
@@ -26,7 +27,7 @@ type wal interface {
 // data in memory. It is responsible for orchestrating the LiteTable protocol.
 type Engine struct {
 	rwMutex       sync.RWMutex
-	data          protocol.DataFormat // rowKey -> family -> qualifier -> []TimestampedValue
+	data          litetable.Data
 	maxBufferSize int
 	wal           wal
 	storage       *storage.Manager

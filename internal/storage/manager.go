@@ -3,7 +3,7 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/protocol"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,14 +12,14 @@ import (
 
 const (
 	dataDiskName       = ".table"
-	dataFamilyLockFile = "config.families.json"
+	dataFamilyLockFile = "families.config.json"
 )
 
 // Manager handles persistent storage operations to a disk
 type Manager struct {
 	rootDir string
 	dataDir string
-	data    protocol.DataFormat
+	data    litetable.Data
 	lock    sync.RWMutex
 
 	snapshotDuration time.Duration
@@ -59,7 +59,7 @@ func New(cfg *Config) (*Manager, error) {
 	m := &Manager{
 		rootDir:          cfg.RootDir,
 		dataDir:          dirName,
-		data:             make(protocol.DataFormat),
+		data:             make(litetable.Data),
 		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
 	}
 

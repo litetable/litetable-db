@@ -11,7 +11,7 @@ import (
 
 type DeleteParams struct {
 	Query              []byte
-	Data               *DataFormat
+	Data               *litetable.Data
 	ConfiguredFamilies []string
 }
 

@@ -4,17 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/protocol"
+	"github.com/litetable/litetable-db/internal/litetable"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
 
+const (
+	reaperFile = ".reaper.gc.json"
+)
+
 type storage interface {
-	GetData() *protocol.DataFormat
+	GetData() *litetable.Data
 }
 
 type Reaper struct {
-	collector chan ReapParams
+	filePath  string
+	collector chan GCParams
 	storage   storage
 
 	mutex        sync.Mutex
@@ -25,12 +32,16 @@ type Reaper struct {
 }
 
 type Config struct {
+	Path       string
 	Storage    storage
 	GCInterval int
 }
 
 func (c *Config) validate() error {
 	var errGrp []error
+	if c.Path == "" {
+		errGrp = append(errGrp, errors.New("directory path cannot be empty"))
+	}
 	if c.Storage == nil {
 		errGrp = append(errGrp, errors.New("storage cannot be nil"))
 	}
@@ -46,11 +57,13 @@ func New(cfg *Config) (*Reaper, error) {
 		return nil, err
 	}
 
-	// create a cancel context to ensure all garbage collection process are shut down gracefully
+	filePath := filepath.Join(cfg.Path, reaperFile)
+	// create a cancel context to ensure all garbage collection processes are shut down gracefully
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Reaper{
-		collector:    make(chan ReapParams, 10000),
+		filePath:     filePath,
+		collector:    make(chan GCParams, 10000),
 		storage:      cfg.Storage,
 		reapInterval: time.Duration(cfg.GCInterval) * time.Second,
 		mutex:        sync.Mutex{},
@@ -60,6 +73,11 @@ func New(cfg *Config) (*Reaper, error) {
 }
 
 func (r *Reaper) Start() error {
+	// Verify the log file exists
+	if err := r.verifyLogFile(); err != nil {
+		return err
+	}
+
 	// Start the reaper
 	go func() {
 		ticker := time.NewTicker(r.reapInterval)
@@ -69,7 +87,7 @@ func (r *Reaper) Start() error {
 			case <-r.procCtx.Done():
 				return
 			case p := <-r.collector:
-				r.write(p)
+				r.write(&p)
 			case <-ticker.C:
 				// Run the garbage collector
 				r.garbageCollector()
@@ -102,4 +120,23 @@ func (r *Reaper) garbageCollector() {
 	r.mutex.Lock()
 	fmt.Println("Running garbage collector...")
 	r.mutex.Unlock()
+}
+
+// verifyLogFile checks if the log file exists, and creates it if it doesn't.
+func (r *Reaper) verifyLogFile() error {
+	_, err := os.Stat(r.filePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err // Return error if it's something other than "file not exist"
+		}
+
+		// Create file if it doesn't exist
+		file, fileErr := os.Create(r.filePath)
+		if fileErr != nil {
+			return fileErr
+		}
+		defer file.Close()
+		return nil // Successfully created the file
+	}
+	return nil // File already exists
 }

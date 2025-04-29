@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	defaultWALFile = "wal.log"
+	defaultWalDirectory = "wal"
+	defaultWALFile      = "wal.log"
 )
 
 // Entry represents a Write-Ahead Log entry for a database operation
@@ -28,12 +29,15 @@ type Manager struct {
 }
 
 type Config struct {
-	// Path to the WAL directory
+	// Path where the WAL directory will be saved
 	Path string
 }
 
 func (c *Config) validate() error {
 	var errGrp []error
+	if c.Path == "" {
+		errGrp = append(errGrp, errors.New("home directory cannot be empty"))
+	}
 	// Path is optional, so no validation needed
 	return errors.Join(errGrp...)
 }
@@ -42,20 +46,7 @@ func New(cfg *Config) (*Manager, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-
-	var walPath string
-
-	if cfg.Path == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, errors.New("failed to get home directory: " + err.Error())
-		}
-		walPath = filepath.Join(homeDir, ".litetable/wal", defaultWALFile)
-	} else {
-		walPath = cfg.Path
-	}
-
-	// Ensure WAL directory exists
+	walPath := filepath.Join(cfg.Path, defaultWalDirectory, defaultWALFile)
 	walDir := filepath.Dir(walPath)
 	if err := os.MkdirAll(walDir, 0750); err != nil {
 		return nil, errors.New("failed to create WAL directory: " + err.Error())
