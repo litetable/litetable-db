@@ -3,6 +3,7 @@ package protocol
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/reaper"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,14 @@ func (m *Manager) Delete(params *DeleteParams) error {
 		return fmt.Errorf("row not found: %s", parsed.rowKey)
 	}
 
+	// expiration logic
+	expiresAt := time.Time{}
+	if parsed.ttl > 0 {
+		expiresAt = parsed.timestamp.Add(parsed.ttl)
+	} else {
+		expiresAt = parsed.timestamp.Add(time.Hour) // default expiration time
+	}
+
 	// BigTable-like approach: Add tombstone markers
 	modifiedFamilies := make(map[string]bool)
 
@@ -36,7 +45,7 @@ func (m *Manager) Delete(params *DeleteParams) error {
 		// Mark the entire row for deletion by adding tombstones to all families
 		for familyName, family := range row {
 			for qualifier := range family {
-				m.addTombstone(row, familyName, qualifier, parsed.timestamp, parsed.ttl)
+				m.addTombstone(row, familyName, qualifier, parsed.timestamp, expiresAt)
 			}
 			modifiedFamilies[familyName] = true
 		}
@@ -49,24 +58,27 @@ func (m *Manager) Delete(params *DeleteParams) error {
 		if len(parsed.qualifiers) == 0 {
 			// Mark entire family for deletion
 			for qualifier := range family {
-				m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, parsed.ttl)
+				m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, expiresAt)
 			}
 		} else {
 			// Mark specific qualifiers
 			for _, qualifier := range parsed.qualifiers {
 				if _, exists := family[qualifier]; exists {
-					m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, parsed.ttl)
+					m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, expiresAt)
 				}
 			}
 		}
 		modifiedFamilies[parsed.family] = true
 	}
 
-	// Check if the row is fully tombstoned
-	// if isRowFullyTombstoned(row) {
-	// 	fmt.Printf("Row %s fully tombstoned; removing from memory", parsed.rowKey)
-	// 	delete(*params.Data, parsed.rowKey)
-	// }
+	// if we've made it this far, send the deleted data for garbage collection
+	m.garbageCollector.Reap(&reaper.GCParams{
+		RowKey:     parsed.rowKey,
+		Family:     parsed.family,
+		Qualifiers: parsed.qualifiers,
+		Timestamp:  parsed.timestamp,
+		ExpiresAt:  expiresAt,
+	})
 
 	return nil
 }
@@ -79,15 +91,8 @@ func (m *Manager) addTombstone(
 	family,
 	qualifier string,
 	timestamp time.Time,
-	ttl time.Duration,
+	expiresAt time.Time,
 ) {
-
-	expiresAt := time.Time{}
-	// if a ttl is applied, add it to the expiration time
-	if ttl > 0 {
-		expiresAt = timestamp.Add(ttl)
-	}
-
 	values := row[family][qualifier]
 
 	// Insert the tombstone

@@ -33,7 +33,7 @@ type Engine struct {
 	storage       *storage.Manager
 
 	allowedFamilies []string // Maps family names to allowed columns
-	familiesFile    string   // Path to store allowed families configuration
+	familiesFile    string   // Path to store allowed family configuration
 	protocol        query
 }
 

@@ -3,7 +3,6 @@ package reaper
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"os"
 	"path/filepath"
@@ -114,12 +113,6 @@ func (r *Reaper) Stop() error {
 
 func (r *Reaper) Name() string {
 	return "Reaper"
-}
-
-func (r *Reaper) garbageCollector() {
-	r.mutex.Lock()
-	fmt.Println("Running garbage collector...")
-	r.mutex.Unlock()
 }
 
 // verifyLogFile checks if the log file exists, and creates it if it doesn't.

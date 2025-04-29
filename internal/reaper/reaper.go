@@ -9,11 +9,11 @@ import (
 
 // GCParams are the required parameters for the Reapers Garbage Collection process.
 type GCParams struct {
-	RowKey     string        `json:"rowKey"`
-	Family     string        `json:"family"`
-	Qualifiers []string      `json:"qualifiers"`
-	Timestamp  time.Time     `json:"timestamp"`
-	TTL        time.Duration `json:"ttl"`
+	RowKey     string    `json:"rowKey"`
+	Family     string    `json:"family"`
+	Qualifiers []string  `json:"qualifiers"`
+	Timestamp  time.Time `json:"timestamp"`
+	ExpiresAt  time.Time `json:"expiresAt"`
 }
 
 // Reap will take in GCParams and throw it into the Garbage Collector.
@@ -47,4 +47,11 @@ func (r *Reaper) write(p *GCParams) {
 	if err != nil {
 		fmt.Printf("failed to write GCParams to log file: %v\n", err)
 	}
+}
+
+// garbageCollector runs the garbage collection over tombstones.
+func (r *Reaper) garbageCollector() {
+	r.mutex.Lock()
+	fmt.Println("Running garbage collector...")
+	r.mutex.Unlock()
 }
