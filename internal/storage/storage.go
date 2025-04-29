@@ -63,7 +63,7 @@ func NewDiskStorage(cfg *Config) (*Disk, error) {
 	}
 
 	// Start background flush timer
-	ds.snapshotTimer = time.AfterFunc(ds.snapshotDuration*time.Second, ds.backgroundFlush)
+	ds.snapshotTimer = time.AfterFunc(ds.snapshotDuration, ds.backgroundFlush)
 
 	return ds, nil
 }
@@ -75,7 +75,7 @@ func (ds *Disk) backgroundFlush() {
 	ds.lock.Unlock()
 
 	// Reset timer
-	ds.snapshotTimer.Reset(ds.snapshotDuration * time.Second)
+	ds.snapshotTimer.Reset(ds.snapshotDuration)
 }
 
 func (ds *Disk) FamilyLockFile() string {
@@ -128,10 +128,7 @@ func (ds *Disk) Stop() error {
 	}
 
 	// Flush any remaining data
-	if err := ds.SaveSnapshot(); err != nil {
-		return fmt.Errorf("failed to flush data to disk: %w", err)
-	}
-	return nil
+	return ds.SaveSnapshot()
 }
 
 func (ds *Disk) Name() string {

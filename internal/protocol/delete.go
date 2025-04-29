@@ -63,10 +63,10 @@ func (m *Manager) Delete(params *DeleteParams) error {
 	}
 
 	// Check if the row is fully tombstoned
-	if isRowFullyTombstoned(row) {
-		fmt.Printf("Row %s fully tombstoned; removing from memory", parsed.rowKey)
-		delete(*params.Data, parsed.rowKey)
-	}
+	// if isRowFullyTombstoned(row) {
+	// 	fmt.Printf("Row %s fully tombstoned; removing from memory", parsed.rowKey)
+	// 	delete(*params.Data, parsed.rowKey)
+	// }
 
 	return nil
 }
