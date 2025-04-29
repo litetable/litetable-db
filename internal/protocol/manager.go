@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 )
 
@@ -11,6 +10,7 @@ type dataStorage interface {
 
 type Manager struct {
 	dataStorage dataStorage
+	defaultTTL  int64
 }
 
 type Config struct {
@@ -18,9 +18,9 @@ type Config struct {
 }
 
 func (c *Config) validate() error {
-	if c.Storage == nil {
-		return fmt.Errorf("storage is required")
-	}
+	// if c.Storage == nil {
+	// 	return fmt.Errorf("storage is required")
+	// }
 	return nil
 }
 
@@ -31,7 +31,8 @@ func New(cfg *Config) (*Manager, error) {
 	}
 
 	return &Manager{
-		dataStorage: cfg.Storage,
+		// dataStorage: cfg.Storage,
+		defaultTTL: 3600, // configure default for 1 hour
 	}, nil
 }
 

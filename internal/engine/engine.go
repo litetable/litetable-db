@@ -67,7 +67,6 @@ func New(cfg *Config) (*Engine, error) {
 		rwMutex:         sync.RWMutex{},
 		maxBufferSize:   4096,
 		wal:             cfg.WAL,
-		data:            make(protocol.DataFormat),
 		storage:         cfg.Storage,
 		allowedFamilies: make([]string, 0),
 		familiesFile:    cfg.Storage.FamilyLockFile(),
@@ -84,52 +83,18 @@ func New(cfg *Config) (*Engine, error) {
 
 // Start loads the data into memory.
 func (e *Engine) Start() error {
-	e.rwMutex.Lock()
-	defer e.rwMutex.Unlock()
-
-	// Clear any existing data to prevent duplication
-	e.data = make(protocol.DataFormat)
-
-	// // First load data from disk storage
-	// diskData, err := e.storage.LoadFromDisk()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to load data from disk: %w", err)
-	// }
-	//
-	// // Populate engine's in-memory data from disk storage
-	// for rowKey, families := range diskData {
-	// 	if e.data[rowKey] == nil {
-	// 		e.data[rowKey] = make(map[string]litetable.VersionedQualifier)
-	// 	}
-	// 	for family, qualifier := range families {
-	// 		e.data[rowKey][family] = qualifier
-	// 	}
-	// }
-	// Load data from Write Ahead Log (WAL)
-	if err := e.wal.Load(e.Data()); err != nil {
-		return fmt.Errorf("failed to load data from WAL: %w", err)
-	}
 	return nil
 }
 
 func (e *Engine) Stop() error {
 	e.rwMutex.Lock()
 	defer e.rwMutex.Unlock()
-
-	// Flush all data to disk storage before shutting down
-	if err := e.storage.ForceFlush(); err != nil {
-		return fmt.Errorf("failed to flush data to disk: %w", err)
-	}
-
+	
 	return nil
 }
 
 func (e *Engine) Name() string {
 	return "Litetable Engine"
-}
-
-func (e *Engine) Data() *protocol.DataFormat {
-	return &e.data
 }
 
 func (e *Engine) saveAllowedFamilies(families []string) error {

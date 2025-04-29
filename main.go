@@ -59,9 +59,9 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
-	protocolManager, err := protocol.New(&protocol.Config{
-		Storage: diskStorage,
-	})
+	deps = append(deps, diskStorage)
+
+	protocolManager, err := protocol.New(&protocol.Config{})
 	if err != nil {
 		return nil, err
 	}

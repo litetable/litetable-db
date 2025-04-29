@@ -143,7 +143,7 @@ func (a *App) stop() error {
 	// set stopCalled to true
 	a.stopCalled.Store(true)
 
-	ctxTo, cancel := context.WithTimeout(context.Background(), a.stopTimeout+1*time.Second)
+	ctxTo, cancel := context.WithTimeout(context.Background(), a.stopTimeout+60*time.Second)
 
 	var errs []error
 

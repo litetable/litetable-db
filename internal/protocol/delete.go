@@ -3,6 +3,7 @@ package protocol
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -12,7 +13,6 @@ type DeleteParams struct {
 	Query              []byte
 	Data               *DataFormat
 	ConfiguredFamilies []string
-	Timestamp          time.Time
 }
 
 // Delete marks data for deletion in the store using tombstones
@@ -30,14 +30,13 @@ func (m *Manager) Delete(params *DeleteParams) error {
 	}
 
 	// BigTable-like approach: Add tombstone markers
-	now := time.Now()
 	modifiedFamilies := make(map[string]bool)
 
 	if parsed.family == "" {
 		// Mark the entire row for deletion by adding tombstones to all families
 		for familyName, family := range row {
 			for qualifier := range family {
-				addTombstone(row, familyName, qualifier, now, parsed.ttl)
+				m.addTombstone(row, familyName, qualifier, parsed.timestamp, parsed.ttl)
 			}
 			modifiedFamilies[familyName] = true
 		}
@@ -50,48 +49,69 @@ func (m *Manager) Delete(params *DeleteParams) error {
 		if len(parsed.qualifiers) == 0 {
 			// Mark entire family for deletion
 			for qualifier := range family {
-				addTombstone(row, parsed.family, qualifier, now, parsed.ttl)
+				m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, parsed.ttl)
 			}
 		} else {
 			// Mark specific qualifiers
 			for _, qualifier := range parsed.qualifiers {
 				if _, exists := family[qualifier]; exists {
-					addTombstone(row, parsed.family, qualifier, now, parsed.ttl)
+					m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, parsed.ttl)
 				}
 			}
 		}
 		modifiedFamilies[parsed.family] = true
 	}
 
-	// Write all modified families to disk
-	for family := range modifiedFamilies {
-		if storeErr := m.dataStorage.Write(parsed.rowKey, family, row[family]); storeErr != nil {
-			return fmt.Errorf("failed to write tombstone to disk: %w", storeErr)
-		}
+	// Check if the row is fully tombstoned
+	if isRowFullyTombstoned(row) {
+		fmt.Printf("Row %s fully tombstoned; removing from memory", parsed.rowKey)
+		delete(*params.Data, parsed.rowKey)
 	}
 
 	return nil
 }
 
-// addTombstone adds a tombstone marker for a cell
-func addTombstone(row map[string]litetable.VersionedQualifier, family, qualifier string, timestamp time.Time, ttl time.Duration) {
-	expiresAt := time.Time{} // Zero time means no automatic expiration
+// addTombstone adds a tombstone marker for a cell at the passed in timestamp.
+// expiresAt is a time that is configured within the Litetable configuration, but
+// can be overridden with a provided TTL.
+func (m *Manager) addTombstone(
+	row map[string]litetable.VersionedQualifier,
+	family,
+	qualifier string,
+	timestamp time.Time,
+	ttl time.Duration,
+) {
+
+	expiresAt := time.Time{}
+	// if a ttl is applied, add it to the expiration time
 	if ttl > 0 {
 		expiresAt = timestamp.Add(ttl)
 	}
 
-	row[family][qualifier] = append(row[family][qualifier], litetable.TimestampedValue{
+	values := row[family][qualifier]
+
+	// Insert the tombstone
+	values = append(values, litetable.TimestampedValue{
 		Value:       nil,
 		Timestamp:   timestamp,
 		IsTombstone: true,
 		ExpiresAt:   expiresAt,
 	})
+
+	// Sort versions descending by Timestamp
+	sort.Slice(values, func(i, j int) bool {
+		return values[i].Timestamp.After(values[j].Timestamp)
+	})
+
+	// we are iterating on the actual memory map here.
+	row[family][qualifier] = values
 }
 
 type deleteQuery struct {
 	rowKey     string
 	family     string
 	qualifiers []string
+	timestamp  time.Time // this is either the current time or the provided timestamp
 	ttl        time.Duration
 }
 
@@ -103,6 +123,7 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 	}
 
 	ttlProvided := false
+	timestampProvided := false
 
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
@@ -120,6 +141,13 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 			parsed.family = value
 		case "qualifier":
 			parsed.qualifiers = append(parsed.qualifiers, value)
+		case "timestamp":
+			timestampProvided = true
+			t, err := time.Parse(time.RFC3339, value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid timestamp format: %s", value)
+			}
+			parsed.timestamp = t.Add(time.Nanosecond) // make a slight increment in the time
 		case "ttl":
 			ttlProvided = true
 			ttlSec, err := strconv.ParseInt(value, 10, 64)
@@ -132,15 +160,42 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		}
 	}
 
+	// if a timestamp is not provided, all records before this record are deleted
+	if !timestampProvided {
+		parsed.timestamp = time.Now()
+	}
+
 	// enforce ttl is required
 	if !ttlProvided {
-		return nil, newError(ErrInvalidFormat, "Delete requires ttl")
+		// use a default TTL
+		parsed.ttl = time.Duration(3600) * time.Second // 1-hour default
 	}
-	
+
 	// Validate required fields
 	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")
 	}
 
 	return parsed, nil
+}
+
+func isRowFullyTombstoned(row map[string]litetable.VersionedQualifier) bool {
+	for _, family := range row {
+		for _, versions := range family {
+			if len(versions) == 0 {
+				continue
+			}
+
+			// Sort in descending order by timestamp (just to be safe)
+			sort.SliceStable(versions, func(i, j int) bool {
+				return versions[i].Timestamp.After(versions[j].Timestamp)
+			})
+
+			// Check if the latest version is a tombstone
+			if !versions[0].IsTombstone {
+				return false
+			}
+		}
+	}
+	return true
 }

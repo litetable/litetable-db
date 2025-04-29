@@ -176,3 +176,64 @@ func TestReadQuery_getLatestN(t *testing.T) {
 		})
 	}
 }
+
+func TestReadQuery_getLatestN_withTombstones(t *testing.T) {
+	// test data
+	values := []litetable.TimestampedValue{
+		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
+		{Value: []byte("value2"), Timestamp: time.Date(2023, 10, 1, 12, 0, 1, 0, time.UTC)},
+		{Value: []byte("value3"), Timestamp: time.Date(2023, 10, 1, 12, 0, 2, 0, time.UTC)},
+		{Value: []byte("value4"), Timestamp: time.Date(2023, 10, 1, 12, 0, 3, 0, time.UTC)},
+		{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC)},
+		{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
+		{Value: []byte("value7"), IsTombstone: true, Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
+		{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC)},
+		{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0,
+			time.UTC)},
+		{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+	}
+
+	sortedValues := make([]litetable.TimestampedValue, len(values))
+	copy(sortedValues, values)
+	sort.Slice(sortedValues, func(i, j int) bool {
+		return sortedValues[i].Timestamp.After(sortedValues[j].Timestamp)
+	})
+
+	tests := map[string]struct {
+		n      int
+		want   int
+		values []litetable.TimestampedValue
+	}{
+		"tombstone": {
+			n:      0,
+			want:   3,
+			values: sortedValues,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := &readQuery{}
+			got := r.getLatestN(values, tc.n)
+
+			req := require.New(t)
+			req.Equal(tc.want, len(got))
+
+			// Let's check the index of the slice of tc.values to ensure we have the
+			// right values
+			for i, v := range got {
+				req.Equal(tc.values[i].Value, v.Value)
+				req.Equal(tc.values[i].Timestamp, v.Timestamp)
+			}
+
+			// lets make sure if there is more than 1 value that the times are sorted in newest
+			// to oldest
+			if len(got) > 1 {
+				for i := 0; i < len(got)-1; i++ {
+					req.True(got[i].Timestamp.After(got[i+1].Timestamp),
+						"values are not sorted in descending order")
+				}
+			}
+		})
+	}
+}

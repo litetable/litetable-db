@@ -48,12 +48,6 @@ func (m *Manager) Write(params *WriteParams) ([]byte, error) {
 				Timestamp: parsed.timestamp,
 			},
 		)
-
-		// Also write to disk storage
-		if storeErr := m.dataStorage.Write(parsed.rowKey, parsed.family,
-			(*params.Data)[parsed.rowKey][parsed.family]); storeErr != nil {
-			return nil, fmt.Errorf("failed to write to disk storage: %w", storeErr)
-		}
 	}
 
 	// Create response with all written values

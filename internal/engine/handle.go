@@ -73,7 +73,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	case protocol.Write:
 		result, writeErr := e.protocol.Write(&protocol.WriteParams{
 			Query:              queryBytes,
-			Data:               e.Data(),
+			Data:               e.storage.GetData(),
 			ConfiguredFamilies: e.allowedFamilies,
 		})
 		if writeErr != nil {
@@ -84,7 +84,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	case protocol.Read:
 		result, readErr := e.protocol.Read(&protocol.ReadParams{
 			Query:              queryBytes,
-			Data:               e.Data(),
+			Data:               e.storage.GetData(),
 			ConfiguredFamilies: e.allowedFamilies,
 		})
 		if readErr != nil {
@@ -95,7 +95,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	case protocol.Delete:
 		deleteErr := e.protocol.Delete(&protocol.DeleteParams{
 			Query:              queryBytes,
-			Data:               e.Data(),
+			Data:               e.storage.GetData(),
 			ConfiguredFamilies: e.allowedFamilies,
 		})
 		if deleteErr != nil {

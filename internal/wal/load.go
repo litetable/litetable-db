@@ -23,7 +23,12 @@ func (m *Manager) Load(source *protocol.DataFormat) error {
 		}
 		return err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+
+		}
+	}(file)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -65,14 +70,14 @@ func (m *Manager) Load(source *protocol.DataFormat) error {
 			// Instead of adding tombstones, directly prune the data from memory
 			if entry.Family == "" {
 				// Delete entire row
-				delete((*source), entry.RowKey)
+				delete(*source, entry.RowKey)
 			} else if row, exists := (*source)[entry.RowKey]; exists {
 				if len(entry.Columns[entry.Family]) == 0 {
 					// Delete entire family
 					delete(row, entry.Family)
 					// Clean up empty row
 					if len(row) == 0 {
-						delete((*source), entry.RowKey)
+						delete(*source, entry.RowKey)
 					}
 				} else {
 					// Delete specific qualifiers

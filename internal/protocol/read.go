@@ -304,16 +304,25 @@ func (r *readQuery) getLatestN(values []litetable.TimestampedValue, n int) []lit
 		return values[i].Timestamp.After(values[j].Timestamp)
 	})
 
-	// Filter out tombstones and collect valid values
+	// Filter out values based on tombstones
+	var tombstoneTime *time.Time
 	valuesCopy := make([]litetable.TimestampedValue, 0, len(values))
 
-	for i := range values {
-		if values[i].IsTombstone {
-			// When we hit a tombstone, we stop processing older values
-			// This effectively "deletes" all older values
-			break
+	// First pass: Find the newest tombstone (if any)
+	for _, v := range values {
+		if v.IsTombstone {
+			if tombstoneTime == nil || v.Timestamp.After(*tombstoneTime) {
+				ts := v.Timestamp
+				tombstoneTime = &ts
+			}
 		}
-		valuesCopy = append(valuesCopy, values[i])
+	}
+
+	// Second pass: Keep only values newer than the tombstone
+	for _, v := range values {
+		if !v.IsTombstone && (tombstoneTime == nil || v.Timestamp.After(*tombstoneTime)) {
+			valuesCopy = append(valuesCopy, v)
+		}
 	}
 
 	// If no valid values after filtering, return nil
