@@ -65,8 +65,6 @@ func (m *Manager) loadFromLatestSnapshot() error {
 
 // maintainSnapshotLimit checks the number of snapshot files in the directory and prunes the oldest
 // ones if the limit is exceeded.
-// maintainSnapshotLimit checks the number of snapshot files in the directory and prunes the oldest
-// ones if the limit is exceeded.
 func (m *Manager) maintainSnapshotLimit() {
 	// List all snapshot files
 	files, err := filepath.Glob(filepath.Join(m.dataDir, "snapshot-*.db"))
