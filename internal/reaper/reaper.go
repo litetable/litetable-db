@@ -143,36 +143,41 @@ func (r *Reaper) didDeleteTombstone(params *GCParams) bool {
 
 	changed := false
 
-	// Process each qualifier
-	for _, qualifier := range params.Qualifiers {
-		values, exists := family[qualifier]
-		if !exists {
-			fmt.Printf("Qualifier %s does not exist in family %s\n", qualifier, params.Family)
-			continue
-		}
+	if len(params.Qualifiers) == 0 {
+		delete(row, params.Family)
+		changed = true
+	} else {
+		// Process each qualifier
+		for _, qualifier := range params.Qualifiers {
+			values, exists := family[qualifier]
+			if !exists {
+				fmt.Printf("Qualifier %s does not exist in family %s\n", qualifier, params.Family)
+				continue
+			}
 
-		// Filter out entries with timestamp ≤ params.Timestamp
-		var newValues []litetable.TimestampedValue
-		for _, entry := range values {
-			if entry.Timestamp.After(params.Timestamp) {
-				newValues = append(newValues, entry)
+			// Filter out entries with timestamp ≤ params.Timestamp
+			var newValues []litetable.TimestampedValue
+			for _, entry := range values {
+				if entry.Timestamp.After(params.Timestamp) {
+					newValues = append(newValues, entry)
+				} else {
+					changed = true
+				}
+			}
+
+			// Update the qualifier with filtered values or remove it if empty
+			if len(newValues) > 0 {
+				family[qualifier] = newValues
 			} else {
+				delete(family, qualifier)
 				changed = true
 			}
 		}
 
-		// Update the qualifier with filtered values or remove it if empty
-		if len(newValues) > 0 {
-			family[qualifier] = newValues
-		} else {
-			delete(family, qualifier)
-			changed = true
+		// Clean up empty structures
+		if len(family) == 0 {
+			delete(row, params.Family)
 		}
-	}
-
-	// Clean up empty structures
-	if len(family) == 0 {
-		delete(row, params.Family)
 	}
 
 	if len(row) == 0 {

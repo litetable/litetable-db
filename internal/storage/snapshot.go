@@ -10,11 +10,9 @@ import (
 	"time"
 )
 
+// saveSnapshot saves the current state of the data to a snapshot file.
 func (m *Manager) saveSnapshot() error {
 	filename := filepath.Join(m.dataDir, fmt.Sprintf("snapshot-%d.db", time.Now().UnixNano()))
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	dataBytes, err := json.Marshal(m.data)
 	if err != nil {

@@ -1,42 +1,49 @@
 package storage
 
 import (
+	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"path/filepath"
+	"time"
 )
-
-// backgroundFlush periodically flushes data to disk
-func (m *Manager) backgroundFlush() {
-	m.mutex.Lock()
-	_ = m.saveSnapshot()
-	m.maintainSnapshotLimit()
-	m.mutex.Unlock()
-
-	// Reset timer
-	m.snapshotTimer.Reset(m.snapshotDuration)
-}
-
-func (m *Manager) FamilyLockFile() string {
-	return filepath.Join(m.rootDir, dataFamilyLockFile)
-}
 
 // Start initializes disk storage for the manager.
 func (m *Manager) Start() error {
-	// start should load data into memory
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	if err := m.loadFromLatestSnapshot(); err != nil {
 		return err
 	}
 
+	// Start the background process for snapshots
+	go func() {
+		ticker := time.NewTicker(m.snapshotDuration)
+		pruneTicker := time.NewTicker(time.Duration(standardSnapshotPruneLimit) * time.Minute)
+
+		defer func() {
+			ticker.Stop()
+			pruneTicker.Stop()
+		}()
+
+		for {
+			select {
+			case <-m.procCtx.Done():
+				return
+			case <-ticker.C:
+				err := m.saveSnapshot()
+				if err != nil {
+					fmt.Printf("failed to save snapshot: %v\n", err)
+				}
+			case <-pruneTicker.C:
+				m.maintainSnapshotLimit()
+			}
+		}
+	}()
 	return nil
 }
 
 func (m *Manager) Stop() error {
-	// stop should flush data to disk
-	if m.snapshotTimer != nil {
-		m.snapshotTimer.Stop()
+	if m.ctxCancel != nil {
+		m.ctxCancel()
 	}
 
 	// Flush any remaining data
@@ -52,6 +59,10 @@ func (m *Manager) GetData() *litetable.Data {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return &m.data
+}
+
+func (m *Manager) FamilyLockFile() string {
+	return filepath.Join(m.rootDir, dataFamilyLockFile)
 }
 
 func (m *Manager) RWLock() {

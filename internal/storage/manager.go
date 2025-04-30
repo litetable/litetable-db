@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
@@ -16,7 +17,8 @@ const (
 )
 
 var (
-	defaultSnapshotLimit = 10
+	standardSnapshotPruneLimit = 15
+	defaultSnapshotLimit       = 10
 )
 
 // Manager handles persistent storage operations to a disk
@@ -27,10 +29,12 @@ type Manager struct {
 	mutex   sync.RWMutex
 
 	snapshotDuration time.Duration
-	snapshotTimer    *time.Timer
 	maxSnapshotLimit int
 
 	latestSnapshotFile string
+
+	procCtx   context.Context
+	ctxCancel context.CancelFunc
 }
 
 type Config struct {
@@ -72,6 +76,8 @@ func New(cfg *Config) (*Manager, error) {
 		cfg.MaxSnapshotLimit = defaultSnapshotLimit
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	m := &Manager{
 		rootDir:          cfg.RootDir,
 		dataDir:          dirName,
@@ -79,10 +85,10 @@ func New(cfg *Config) (*Manager, error) {
 		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
 		maxSnapshotLimit: cfg.MaxSnapshotLimit,
 		mutex:            sync.RWMutex{},
-	}
 
-	// Start background flush timer
-	m.snapshotTimer = time.AfterFunc(m.snapshotDuration, m.backgroundFlush)
+		procCtx:   ctx,
+		ctxCancel: cancel,
+	}
 
 	return m, nil
 }

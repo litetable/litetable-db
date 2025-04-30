@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	reaperFile = ".reaper.gc.json"
+	reaperFile = ".reaper.gc.log"
 )
 
 type storage interface {

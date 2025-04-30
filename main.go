@@ -53,8 +53,9 @@ func initialize() (*app.App, error) {
 
 	// create a disk storage manager
 	diskStorage, err := storage.New(&storage.Config{
-		RootDir:        certDir,
-		FlushThreshold: 1000,
+		RootDir:          certDir,
+		FlushThreshold:   20,
+		MaxSnapshotLimit: 2,
 	})
 	if err != nil {
 		return nil, err
@@ -65,7 +66,7 @@ func initialize() (*app.App, error) {
 	// create a new Reaper (aka Garbage Collector)
 	reaperGC, err := reaper.New(&reaper.Config{
 		Storage:    diskStorage,
-		GCInterval: 10,
+		GCInterval: 30,
 		Path:       certDir,
 	})
 	if err != nil {
