@@ -15,6 +15,10 @@ const (
 	dataFamilyLockFile = "families.config.json"
 )
 
+var (
+	defaultSnapshotLimit = 10
+)
+
 // Manager handles persistent storage operations to a disk
 type Manager struct {
 	rootDir string
@@ -24,13 +28,15 @@ type Manager struct {
 
 	snapshotDuration time.Duration
 	snapshotTimer    *time.Timer
+	maxSnapshotLimit int
 
 	latestSnapshotFile string
 }
 
 type Config struct {
-	RootDir        string
-	FlushThreshold int
+	RootDir          string
+	FlushThreshold   int
+	MaxSnapshotLimit int
 }
 
 func (c *Config) validate() error {
@@ -40,6 +46,11 @@ func (c *Config) validate() error {
 	}
 	if c.FlushThreshold <= 0 {
 		errGrp = append(errGrp, fmt.Errorf("flush threshold must be greater than 0"))
+	}
+
+	// if the configured snapshot is larger than 50, throw an error
+	if c.MaxSnapshotLimit < 0 || c.MaxSnapshotLimit > 50 {
+		errGrp = append(errGrp, fmt.Errorf("max snapshot limit must be between 1 and 50"))
 	}
 
 	return errors.Join(errGrp...)
@@ -56,11 +67,17 @@ func New(cfg *Config) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
+	// if we got nothing, set the default
+	if cfg.MaxSnapshotLimit == 0 {
+		cfg.MaxSnapshotLimit = defaultSnapshotLimit
+	}
+
 	m := &Manager{
 		rootDir:          cfg.RootDir,
 		dataDir:          dirName,
 		data:             make(litetable.Data),
 		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
+		maxSnapshotLimit: cfg.MaxSnapshotLimit,
 		mutex:            sync.RWMutex{},
 	}
 

@@ -113,7 +113,7 @@ func (r *Reaper) garbageCollector() {
 	}
 
 	// Rewrite the file with only active entries
-	if err := r.rewriteGCLog(activeEntries); err != nil {
+	if err = r.rewriteGCLog(activeEntries); err != nil {
 		fmt.Printf("Error rewriting GC log file: %v\n", err)
 	}
 
