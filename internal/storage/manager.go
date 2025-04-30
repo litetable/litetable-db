@@ -20,7 +20,7 @@ type Manager struct {
 	rootDir string
 	dataDir string
 	data    litetable.Data
-	lock    sync.RWMutex
+	mutex   sync.RWMutex
 
 	snapshotDuration time.Duration
 	snapshotTimer    *time.Timer
@@ -61,6 +61,7 @@ func New(cfg *Config) (*Manager, error) {
 		dataDir:          dirName,
 		data:             make(litetable.Data),
 		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
+		mutex:            sync.RWMutex{},
 	}
 
 	// Start background flush timer

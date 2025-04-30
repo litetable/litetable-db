@@ -32,10 +32,11 @@ func (m *Manager) Delete(params *DeleteParams) error {
 
 	// expiration logic
 	expiresAt := time.Time{}
+	now := time.Now()
 	if parsed.ttl > 0 {
-		expiresAt = parsed.timestamp.Add(parsed.ttl)
+		expiresAt = now.Add(parsed.ttl)
 	} else {
-		expiresAt = parsed.timestamp.Add(time.Hour) // default expiration time
+		expiresAt = now.Add(time.Hour)
 	}
 
 	// BigTable-like approach: Add tombstone markers

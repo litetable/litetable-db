@@ -11,9 +11,9 @@ import (
 
 // backgroundFlush periodically flushes data to disk
 func (m *Manager) backgroundFlush() {
-	m.lock.Lock()
+	m.mutex.Lock()
 	_ = m.SaveSnapshot()
-	m.lock.Unlock()
+	m.mutex.Unlock()
 
 	// Reset timer
 	m.snapshotTimer.Reset(m.snapshotDuration)
@@ -26,8 +26,8 @@ func (m *Manager) FamilyLockFile() string {
 // Start initializes disk storage for the manager.
 func (m *Manager) Start() error {
 	// start should load data into memory
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	files, err := filepath.Glob(filepath.Join(m.dataDir, "snapshot-*.db"))
 	if err != nil {
@@ -79,24 +79,33 @@ func (m *Manager) Name() string {
 
 // GetData Provides access to the data
 func (m *Manager) GetData() *litetable.Data {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	return &m.data
 }
 
 func (m *Manager) SaveSnapshot() error {
 	filename := filepath.Join(m.dataDir, fmt.Sprintf("snapshot-%d.db", time.Now().UnixNano()))
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	dataBytes, err := json.Marshal(m.data)
 	if err != nil {
 		return fmt.Errorf("failed to serialize snapshot: %w", err)
 	}
 
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-
-	if err := os.WriteFile(filename, dataBytes, 0644); err != nil {
+	if err = os.WriteFile(filename, dataBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write snapshot file: %w", err)
 	}
 
 	return nil
+}
+
+func (m *Manager) RWLock() {
+	m.mutex.Lock()
+}
+
+func (m *Manager) RWUnlock() {
+	m.mutex.Unlock()
 }

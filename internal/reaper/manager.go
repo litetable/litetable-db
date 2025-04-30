@@ -16,6 +16,8 @@ const (
 
 type storage interface {
 	GetData() *litetable.Data
+	RWLock() // The Reaper needs control to lock and unlock the data source
+	RWUnlock()
 }
 
 type Reaper struct {
@@ -128,7 +130,9 @@ func (r *Reaper) verifyLogFile() error {
 		if fileErr != nil {
 			return fileErr
 		}
-		defer file.Close()
+		defer func(file *os.File) {
+			_ = file.Close()
+		}(file)
 		return nil // Successfully created the file
 	}
 	return nil // File already exists
