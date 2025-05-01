@@ -23,7 +23,7 @@ func (e *Engine) Handle(conn net.Conn) {
 	}
 
 	var response []byte
-	res, err := e.protocol.RunOperation(buf)
+	res, err := e.operations.Run(buf)
 	if err != nil {
 		fmt.Printf("Error handling request: %v\n", err)
 		response = []byte(fmt.Sprintf("Error: %v", err))

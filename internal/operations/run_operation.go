@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// RunOperation accepts a buffer and decodes it into a message type and query bytes.
-func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
+// Run accepts a buffer and decodes it into a message type and query bytes.
+func (m *Manager) Run(buf []byte) ([]byte, error) {
 	msgType, queryBytes := litetable.Decode(buf)
 	// if query bytes are empty, return an error
 	if len(queryBytes) == 0 {

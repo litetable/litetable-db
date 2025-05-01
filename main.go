@@ -83,9 +83,10 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
-	// Protocol is the package that interacts with the LiteTable Data. It decides how to read and write
-	// data to the disk storage and sends values for Garbage Collection.
-	protocolManager, err := operations.New(&operations.Config{
+	// Operations is the package that interacts with the LiteTable Data.
+	// It decides how to read and write
+	// data to disk storage and decides when to call the reaper.
+	opsManager, err := operations.New(&operations.Config{
 		GarbageCollector: reaperGC,
 		WAL:              walManager,
 		Storage:          diskStorage,
@@ -96,8 +97,7 @@ func initialize() (*app.App, error) {
 
 	// create the litetable engine
 	engineHandler, err := engine.New(&engine.Config{
-		WAL:      walManager,
-		Protocol: protocolManager,
+		OperationManager: opsManager,
 	})
 	if err != nil {
 		return nil, err

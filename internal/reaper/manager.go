@@ -22,7 +22,7 @@ type storage interface {
 
 type Reaper struct {
 	filePath  string
-	collector chan GCParams
+	collector chan ReapParams
 	storage   storage
 
 	mutex        sync.Mutex
@@ -64,7 +64,7 @@ func New(cfg *Config) (*Reaper, error) {
 
 	return &Reaper{
 		filePath:     filePath,
-		collector:    make(chan GCParams, 10000),
+		collector:    make(chan ReapParams, 10000),
 		storage:      cfg.Storage,
 		reapInterval: time.Duration(cfg.GCInterval) * time.Second,
 		mutex:        sync.Mutex{},

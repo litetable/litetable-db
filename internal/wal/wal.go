@@ -73,15 +73,14 @@ func New(cfg *Config) (*Manager, error) {
 // or corrupted, the data is still available in the database. The WAL is used to ensure
 // that the data is written to the database before the transaction is considered complete.
 func (m *Manager) Apply(e *Entry) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	// Convert the entry to JSON for storage
 	jsonData, err := json.Marshal(e)
 	if err != nil {
 		return fmt.Errorf("failed to marshal entry: %w", err)
 	}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	// Write the JSON data to the WAL file, followed by a newline
 	if _, err = m.walFile.Write(append(jsonData, '\n')); err != nil {
 		return fmt.Errorf("failed to write to WAL: %w", err)

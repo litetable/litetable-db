@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// GCParams are the required parameters for the Reapers Garbage Collection process.
-type GCParams struct {
+// ReapParams are the required parameters for the Reapers Garbage Collection process.
+type ReapParams struct {
 	RowKey     string    `json:"rowKey"`
 	Family     string    `json:"family"`
 	Qualifiers []string  `json:"qualifiers"`
@@ -19,12 +19,12 @@ type GCParams struct {
 }
 
 // Reap will take in GCParams and throw it into the Garbage Collector.
-func (r *Reaper) Reap(p *GCParams) {
+func (r *Reaper) Reap(p *ReapParams) {
 	r.collector <- *p
 }
 
 // write will append the GCParams to the GC log file.
-func (r *Reaper) write(p *GCParams) {
+func (r *Reaper) write(p *ReapParams) {
 	// open the file
 	file, err := os.OpenFile(r.filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0640)
 	if err != nil {
@@ -65,8 +65,8 @@ func (r *Reaper) garbageCollector() {
 	defer file.Close()
 
 	// Read the file line by line
-	var entries []GCParams
-	var activeEntries []GCParams
+	var entries []ReapParams
+	var activeEntries []ReapParams
 	var processed int
 	var removed int
 
@@ -77,7 +77,7 @@ func (r *Reaper) garbageCollector() {
 			continue
 		}
 
-		var params GCParams
+		var params ReapParams
 		if err := json.Unmarshal([]byte(line), &params); err != nil {
 			fmt.Printf("Error unmarshaling GC log entry: %v\n", err)
 			continue
@@ -120,7 +120,7 @@ func (r *Reaper) garbageCollector() {
 	fmt.Printf("Garbage collection complete: processed %d entries, removed %d\n", processed, removed)
 }
 
-func (r *Reaper) didDeleteTombstone(params *GCParams) bool {
+func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
 	data := r.storage.GetData()
 
 	// Check if the row exists
@@ -188,7 +188,7 @@ func (r *Reaper) didDeleteTombstone(params *GCParams) bool {
 }
 
 // rewriteGCLog rewrites the GC log file with only active entries.
-func (r *Reaper) rewriteGCLog(entries []GCParams) error {
+func (r *Reaper) rewriteGCLog(entries []ReapParams) error {
 	// Truncate the file (effectively delete all content)
 	file, err := os.OpenFile(r.filePath, os.O_WRONLY|os.O_TRUNC, 0640)
 	if err != nil {

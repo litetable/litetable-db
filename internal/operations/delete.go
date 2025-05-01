@@ -69,7 +69,7 @@ func (m *Manager) delete(query []byte) error {
 	}
 
 	// if we've made it this far, send the deleted data for garbage collection
-	m.garbageCollector.Reap(&reaper.GCParams{
+	m.garbageCollector.Reap(&reaper.ReapParams{
 		RowKey:     parsed.rowKey,
 		Family:     parsed.family,
 		Qualifiers: parsed.qualifiers,

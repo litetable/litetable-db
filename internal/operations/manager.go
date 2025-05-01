@@ -12,7 +12,7 @@ type writeAhead interface {
 }
 
 type garbageCollector interface {
-	Reap(p *reaper.GCParams)
+	Reap(p *reaper.ReapParams)
 }
 
 type storageManager interface {
