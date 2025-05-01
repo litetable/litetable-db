@@ -27,15 +27,6 @@ func (m *Manager) delete(query []byte) error {
 		return fmt.Errorf("row not found: %s", parsed.rowKey)
 	}
 
-	// expiration logic
-	expiresAt := time.Time{}
-	now := time.Now()
-	if parsed.ttl > 0 {
-		expiresAt = now.Add(parsed.ttl)
-	} else {
-		expiresAt = now.Add(time.Hour)
-	}
-
 	// BigTable-like approach: Add tombstone markers
 	modifiedFamilies := make(map[string]bool)
 
@@ -43,8 +34,13 @@ func (m *Manager) delete(query []byte) error {
 		// Mark the entire row for deletion by adding tombstones to all families
 		for familyName, family := range row {
 			for qualifier := range family {
-				m.addTombstone(row, parsed.rowKey, familyName, qualifier, parsed.timestamp,
-					expiresAt)
+				m.addTombstone(
+					row,
+					parsed.rowKey,
+					familyName,
+					qualifier,
+					parsed.timestamp,
+					parsed.expiresAt)
 			}
 			modifiedFamilies[familyName] = true
 		}
@@ -57,14 +53,25 @@ func (m *Manager) delete(query []byte) error {
 		if len(parsed.qualifiers) == 0 {
 			// Mark entire family for deletion
 			for qualifier := range family {
-				m.addTombstone(row, parsed.rowKey, parsed.family, qualifier, parsed.timestamp, expiresAt)
+				m.addTombstone(
+					row,
+					parsed.rowKey,
+					parsed.family,
+					qualifier,
+					parsed.timestamp,
+					parsed.expiresAt)
 			}
 		} else {
 			// Mark specific qualifiers
 			for _, qualifier := range parsed.qualifiers {
 				if _, exists := family[qualifier]; exists {
-					m.addTombstone(row, parsed.rowKey, parsed.family, qualifier, parsed.timestamp,
-						expiresAt)
+					m.addTombstone(
+						row,
+						parsed.rowKey,
+						parsed.family,
+						qualifier,
+						parsed.timestamp,
+						parsed.expiresAt)
 				}
 			}
 		}
@@ -77,7 +84,7 @@ func (m *Manager) delete(query []byte) error {
 		Family:     parsed.family,
 		Qualifiers: parsed.qualifiers,
 		Timestamp:  parsed.timestamp,
-		ExpiresAt:  expiresAt,
+		ExpiresAt:  parsed.expiresAt,
 	})
 
 	return nil
@@ -127,17 +134,18 @@ type deleteQuery struct {
 	qualifiers []string
 	timestamp  time.Time // this is either the current time or the provided timestamp
 	ttl        time.Duration
+	expiresAt  time.Time
 }
 
 func parseDeleteQuery(input string) (*deleteQuery, error) {
 	parts := strings.Fields(input)
+	now := time.Now()
 	parsed := &deleteQuery{
 		qualifiers: []string{},
-		ttl:        0, // Default to no automatic expiration
+		ttl:        time.Duration(3600) * time.Second,
+		timestamp:  now,
+		expiresAt:  now.Add(time.Hour),
 	}
-
-	ttlProvided := false
-	timestampProvided := false
 
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
@@ -156,14 +164,12 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		case "qualifier":
 			parsed.qualifiers = append(parsed.qualifiers, value)
 		case "timestamp":
-			timestampProvided = true
 			t, err := time.Parse(time.RFC3339, value)
 			if err != nil {
 				return nil, fmt.Errorf("invalid timestamp format: %s", value)
 			}
 			parsed.timestamp = t.Add(time.Nanosecond) // make a slight increment in the time
 		case "ttl":
-			ttlProvided = true
 			ttlSec, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid ttl value: %s", value)
@@ -172,17 +178,6 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		default:
 			return nil, fmt.Errorf("unknown parameter: %s", key)
 		}
-	}
-
-	// if a timestamp is not provided, all records before this record are deleted
-	if !timestampProvided {
-		parsed.timestamp = time.Now()
-	}
-
-	// enforce ttl is required
-	if !ttlProvided {
-		// use a default TTL
-		parsed.ttl = time.Duration(3600) * time.Second // 1-hour default
 	}
 
 	// Validate required fields

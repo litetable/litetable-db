@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/reaper"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -38,13 +40,40 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 	// Write all qualifier-value pairs with the same timestamp
 	for i, qualifier := range parsed.qualifiers {
 		value := parsed.values[i]
+
+		newRow := litetable.TimestampedValue{
+			Value:     value,
+			Timestamp: parsed.timestamp,
+		}
+
+		// if we have an expiration time, write the time for all qualifier-value pairs
+		if parsed.expiresAt != nil {
+			newRow.IsTombstone = true
+			newRow.ExpiresAt = *parsed.expiresAt
+		}
+
 		(*data)[parsed.rowKey][parsed.family][qualifier] = append(
-			(*data)[parsed.rowKey][parsed.family][qualifier],
-			litetable.TimestampedValue{
-				Value:     value,
-				Timestamp: parsed.timestamp,
-			},
+			(*data)[parsed.rowKey][parsed.family][qualifier], newRow,
 		)
+
+		// Emit CDC event with the writeQuery details.
+		m.cdc.Emit(&cdc_emitter.CDCParams{
+			Operation: litetable.OperationWrite,
+			RowKey:    parsed.rowKey,
+			Column:    newRow,
+		})
+
+		// we need to do a double != nil checks because we don't want to send for garbage
+		// collection before the data is saved.
+		if parsed.expiresAt != nil {
+			m.garbageCollector.Reap(&reaper.ReapParams{
+				RowKey:     parsed.rowKey,
+				Family:     parsed.family,
+				Qualifiers: parsed.qualifiers,
+				Timestamp:  parsed.timestamp,
+				ExpiresAt:  *parsed.expiresAt,
+			})
+		}
 	}
 
 	// Create response with all written values
@@ -64,23 +93,24 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 		values := []litetable.TimestampedValue{timestampedValue}
 		result.Columns[parsed.family][qualifier] = values
 
-		// Emit CDC event with the complete information
-		m.cdc.Emit(&cdc_emitter.CDCParams{
-			Operation: litetable.OperationWrite,
-			RowKey:    parsed.rowKey,
-			Column:    timestampedValue,
-		})
 	}
 
 	return json.Marshal(result)
 }
 
+// writeQuery are the possible values to be passed in the query that manipulate the write
+// behavior to the table.
+//
+// Note: ttl is globally applied to all rows in the write.
 type writeQuery struct {
 	rowKey     string
 	family     string
 	qualifiers []string
 	values     [][]byte
 	timestamp  time.Time
+	expiresAt  *time.Time
+	// ttl is the time the row should no longer be relevant from the time written
+	ttl *int64
 }
 
 // parseWriteQuery parses a write query string into a structured form
@@ -90,6 +120,8 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 		qualifiers: []string{},
 		values:     [][]byte{},
 		timestamp:  time.Now(),
+		expiresAt:  &time.Time{},
+		ttl:        nil,
 	}
 
 	for _, part := range parts {
@@ -116,12 +148,15 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 			parsed.qualifiers = append(parsed.qualifiers, decodedValue)
 		case "value":
 			parsed.values = append(parsed.values, []byte(decodedValue))
-		case "timestamp":
-			t, err := time.Parse(time.RFC3339, decodedValue)
+		case "ttl":
+			ttlSec, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid timestamp format: %s", decodedValue)
+				return nil, fmt.Errorf("invalid ttl value: %s", value)
 			}
-			parsed.timestamp = t
+			parsed.ttl = &ttlSec
+			// expires at should be the write time + ttl
+			expireTime := parsed.timestamp.Add(time.Duration(ttlSec) * time.Second)
+			parsed.expiresAt = &expireTime
 		}
 	}
 
