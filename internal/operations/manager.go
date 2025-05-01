@@ -2,6 +2,7 @@ package operations
 
 import (
 	"errors"
+	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/wal"
@@ -21,17 +22,23 @@ type storageManager interface {
 	UpdateFamilies(families []string) error
 }
 
+type cdc interface {
+	Emit(params *cdc_emitter.CDCParams)
+}
+
 type Manager struct {
 	garbageCollector garbageCollector
 	writeAhead       writeAhead
 	defaultTTL       int64
 	storage          storageManager
+	cdc              cdc
 }
 
 type Config struct {
 	GarbageCollector garbageCollector
 	WAL              writeAhead
 	Storage          storageManager
+	CDC              cdc
 }
 
 func (c *Config) validate() error {
@@ -44,6 +51,9 @@ func (c *Config) validate() error {
 	}
 	if c.Storage == nil {
 		errGrp = append(errGrp, errors.New("storage cannot be nil"))
+	}
+	if c.CDC == nil {
+		errGrp = append(errGrp, errors.New("CDC emitter cannot be nil"))
 	}
 	return errors.Join(errGrp...)
 }
@@ -59,5 +69,6 @@ func New(cfg *Config) (*Manager, error) {
 		writeAhead:       cfg.WAL,
 		defaultTTL:       3600, // configure default for 1 hour
 		storage:          cfg.Storage,
+		cdc:              cfg.CDC,
 	}, nil
 }

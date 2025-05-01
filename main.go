@@ -82,7 +82,10 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
-	cdcEmitter, err := cdc_emitter.New()
+	cdcEmitter, err := cdc_emitter.New(&cdc_emitter.Config{
+		Port:    32496,
+		Address: "127.0.0.1",
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +98,7 @@ func initialize() (*app.App, error) {
 		GarbageCollector: reaperGC,
 		WAL:              walManager,
 		Storage:          diskStorage,
+		CDC:              cdcEmitter,
 	})
 	if err != nil {
 		return nil, err

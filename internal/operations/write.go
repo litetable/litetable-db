@@ -3,6 +3,7 @@ package operations
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"net/url"
 	"strings"
@@ -62,6 +63,10 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 		}
 	}
 
+	m.cdc.Emit(&cdc_emitter.CDCParams{
+		Msg: fmt.Sprintf("write %s %s %s", parsed.rowKey, parsed.family, strings.Join(parsed.qualifiers, ",")),
+	})
+	
 	return json.Marshal(result)
 }
 
