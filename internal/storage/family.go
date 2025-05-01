@@ -67,3 +67,20 @@ func (m *Manager) GetFamilies() []string {
 	copy(newFamilies, m.allowedFamilies)
 	return newFamilies
 }
+
+func (m *Manager) IsFamilyAllowed(family string) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	// If no allowed families are defined, don't allow any
+	if len(m.allowedFamilies) == 0 {
+		return false
+	}
+
+	for _, f := range m.allowedFamilies {
+		if f == family {
+			return true
+		}
+	}
+	return false
+}

@@ -10,12 +10,6 @@ import (
 	"time"
 )
 
-type DeleteParams struct {
-	Query              []byte
-	Data               *litetable.Data
-	ConfiguredFamilies []string
-}
-
 // Delete marks data for deletion in the store using tombstones
 func (m *Manager) delete(query []byte) error {
 	// Parse the query

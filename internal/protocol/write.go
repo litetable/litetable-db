@@ -9,12 +9,6 @@ import (
 	"time"
 )
 
-type WriteParams struct {
-	Query              []byte
-	Data               *litetable.Data
-	ConfiguredFamilies []string
-}
-
 // Write processes a mutation to update the data store
 func (m *Manager) Write(query []byte) ([]byte, error) {
 	// Parse the query
@@ -24,7 +18,7 @@ func (m *Manager) Write(query []byte) ([]byte, error) {
 	}
 
 	// Validate the family is allowed
-	if !isFamilyAllowed(m.storage.GetFamilies(), parsed.family) {
+	if !m.storage.IsFamilyAllowed(parsed.family) {
 		return nil, fmt.Errorf("column family not allowed: %s", parsed.family)
 	}
 

@@ -2,25 +2,23 @@ package protocol
 
 import (
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
 	wal2 "github.com/litetable/litetable-db/internal/wal"
 	"time"
 )
 
+// RunOperation accepts a buffer and decodes it into a message type and query bytes.
 func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
-	msgType, queryBytes, decodeErr := Decode(buf)
-	if decodeErr != nil {
-		return nil, decodeErr
-	}
-
+	msgType, queryBytes := litetable.Decode(buf)
 	// if query bytes are empty, return an error
 	if len(queryBytes) == 0 {
 		return nil, errEmptyQuery
 	}
 
-	// Only append to the WAL if this is not a READ
-	if msgType != Read {
+	// Only append to the WAL if this is not a READ or UNKNOWN
+	if msgType != litetable.OperationRead && msgType != litetable.OperationUnknown {
 		newEntry := &wal2.Entry{
-			Protocol:  msgType,
+			Operation: msgType,
 			Query:     queryBytes,
 			Timestamp: time.Now(),
 		}
@@ -33,7 +31,7 @@ func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
 	var response []byte
 
 	switch msgType {
-	case Create:
+	case litetable.OperationCreate:
 		m.rwMutex.Lock()
 		err := m.create(queryBytes)
 		m.rwMutex.Unlock()
@@ -41,7 +39,7 @@ func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
 			return nil, err
 		}
 		response = []byte("Family created successfully")
-	case Write:
+	case litetable.OperationWrite:
 		m.rwMutex.Lock()
 		result, writeErr := m.Write(queryBytes)
 		m.rwMutex.Unlock()
@@ -49,13 +47,13 @@ func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
 			return nil, writeErr
 		}
 		response = result
-	case Read:
+	case litetable.OperationRead:
 		result, readErr := m.read(queryBytes)
 		if readErr != nil {
 			return nil, readErr
 		}
 		response = result
-	case Delete:
+	case litetable.OperationDelete:
 		m.rwMutex.Lock()
 		deleteErr := m.delete(queryBytes)
 		m.rwMutex.Unlock()
@@ -63,7 +61,7 @@ func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
 			return nil, deleteErr
 		}
 		response = []byte("OK")
-	case Unknown:
+	case litetable.OperationUnknown:
 		response = []byte("ERROR: Unknown operation ")
 	}
 

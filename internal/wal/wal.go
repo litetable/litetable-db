@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"os"
 	"path/filepath"
 	"sync"
@@ -17,9 +18,9 @@ const (
 
 // Entry represents a Write-Ahead Log entry for a database operation
 type Entry struct {
-	Protocol  int       `json:"protocol"`
-	Query     []byte    `json:"query"`
-	Timestamp time.Time `json:"timestamp"`
+	Operation litetable.Operation `json:"operation"`
+	Query     []byte              `json:"query"`
+	Timestamp time.Time           `json:"timestamp"`
 }
 
 type Manager struct {

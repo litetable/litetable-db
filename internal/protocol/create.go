@@ -5,11 +5,6 @@ import (
 	"strings"
 )
 
-type CreateParams struct {
-	Query []byte
-	CB    func([]string) error
-}
-
 func (m *Manager) create(query []byte) error {
 	input := string(query)
 	parts := strings.Fields(input)

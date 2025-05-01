@@ -19,7 +19,7 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	if !isFamilyAllowed(m.storage.GetFamilies(), parsed.family) {
+	if !m.storage.IsFamilyAllowed(parsed.family) {
 		return nil, fmt.Errorf("column family does not exist: %s", parsed.family)
 	}
 

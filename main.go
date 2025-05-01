@@ -97,7 +97,6 @@ func initialize() (*app.App, error) {
 	// create the litetable engine
 	engineHandler, err := engine.New(&engine.Config{
 		WAL:      walManager,
-		Storage:  diskStorage,
 		Protocol: protocolManager,
 	})
 	if err != nil {

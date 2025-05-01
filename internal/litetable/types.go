@@ -4,6 +4,21 @@ import (
 	"time"
 )
 
+type Operation string
+
+const (
+	// OperationRead represents a read operation
+	OperationRead Operation = "READ"
+	// OperationWrite represents a write operation
+	OperationWrite Operation = "WRITE"
+	// OperationDelete represents a delete operation
+	OperationDelete Operation = "DELETE"
+	// OperationCreate represents a create operation
+	OperationCreate Operation = "CREATE"
+	// OperationUnknown represents an unknown operation
+	OperationUnknown Operation = "UNKNOWN"
+)
+
 // TimestampedValue stores a value with its timestamp
 type TimestampedValue struct {
 	Value       []byte    `json:"value"`

@@ -18,7 +18,7 @@ type garbageCollector interface {
 
 type storageManager interface {
 	GetData() *litetable.Data
-	GetFamilies() []string
+	IsFamilyAllowed(family string) bool
 	UpdateFamilies(families []string) error
 }
 

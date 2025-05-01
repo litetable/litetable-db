@@ -3,8 +3,6 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/storage"
 	wal2 "github.com/litetable/litetable-db/internal/wal"
 	"sync"
 )
@@ -21,30 +19,21 @@ type wal interface {
 // data in memory. It is responsible for orchestrating the LiteTable protocol.
 type Engine struct {
 	rwMutex       sync.RWMutex
-	data          litetable.Data
 	maxBufferSize int
 	wal           wal
-	storage       *storage.Manager
-
-	allowedFamilies []string // Maps family names to allowed columns
-	familiesFile    string   // Path to store allowed family configuration
-	protocol        protocolManager
+	protocol      protocolManager
 }
 
 type Config struct {
-	WAL      wal
-	Protocol protocolManager
-	Storage  *storage.Manager
+	WAL           wal
+	Protocol      protocolManager
+	MaxBufferSize int
 }
 
 func (c *Config) validate() error {
 	var errGrp []error
 	if c.WAL == nil {
 		errGrp = append(errGrp, fmt.Errorf("WAL is required"))
-	}
-
-	if c.Storage == nil {
-		errGrp = append(errGrp, fmt.Errorf("storage is required"))
 	}
 
 	if c.Protocol == nil {
@@ -62,10 +51,12 @@ func New(cfg *Config) (*Engine, error) {
 		rwMutex:       sync.RWMutex{},
 		maxBufferSize: 4096,
 		wal:           cfg.WAL,
-		storage:       cfg.Storage,
 		protocol:      cfg.Protocol,
 	}
 
+	if cfg.MaxBufferSize > 0 {
+		e.maxBufferSize = cfg.MaxBufferSize
+	}
 	return e, nil
 }
 
