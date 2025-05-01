@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// Write processes a mutation to update the data store
-func (m *Manager) Write(query []byte) ([]byte, error) {
+// write processes a mutation to update the data store
+func (m *Manager) write(query []byte) ([]byte, error) {
 	// Parse the query
 	parsed, err := parseWriteQuery(string(query))
 	if err != nil {

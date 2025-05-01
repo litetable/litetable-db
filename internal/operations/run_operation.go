@@ -38,7 +38,7 @@ func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
 		}
 		response = []byte("Family created successfully")
 	case litetable.OperationWrite:
-		result, writeErr := m.Write(queryBytes)
+		result, writeErr := m.write(queryBytes)
 		if writeErr != nil {
 			return nil, writeErr
 		}

@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -13,7 +12,7 @@ func (m *Manager) create(query []byte) error {
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) != 2 {
-			return fmt.Errorf("invalid format: %s", part)
+			return newError(errInvalidFormat, part)
 		}
 
 		key, value := kv[0], kv[1]
@@ -24,12 +23,16 @@ func (m *Manager) create(query []byte) error {
 	}
 
 	if familyValue == "" {
-		return fmt.Errorf("missing family name")
+		return newError(errMissingKey, "missing family name")
 	}
 
 	// Split the family value by commas to get individual family names
 	families := strings.Split(familyValue, ",")
 
-	// Call any provided callback function
-	return m.storage.UpdateFamilies(families)
+	err := m.storage.UpdateFamilies(families)
+	if err != nil {
+		return newError(err, "failed to update families")
+	}
+
+	return nil
 }

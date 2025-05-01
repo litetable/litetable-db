@@ -52,7 +52,7 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 		return json.Marshal(result)
 	}
 
-	return nil, newError(ErrInvalidFormat, "must provide rowKey, rowKeyPrefix, or rowKeyRegex")
+	return nil, newError(errInvalidFormat, "must provide rowKey, rowKeyPrefix, or rowKeyRegex")
 }
 
 // readQuery are the parameters for any supported read query
@@ -78,7 +78,7 @@ func parseRead(input string) (*readQuery, error) {
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) != 2 {
-			return nil, newError(ErrInvalidFormat,
+			return nil, newError(errInvalidFormat,
 				"queries must include at least a column family and a search key, got: %s",
 				input)
 		}
@@ -99,28 +99,29 @@ func parseRead(input string) (*readQuery, error) {
 		case "latest":
 			n, err := strconv.Atoi(value)
 			if err != nil {
-				return nil, newError(ErrInvalidFormat, "latest must be a number. received %s",
+				return nil, newError(errInvalidFormat, "latest must be a number. received %s",
 					value)
 			}
 			if n < 0 {
-				return nil, newError(ErrInvalidFormat,
+				return nil, newError(errInvalidFormat,
 					"latest must be greater than 0. received %d", n)
 			}
 			parsed.latest = n
 		case "timestamp":
 			t, err := time.Parse(time.RFC3339, value)
 			if err != nil {
-				return nil, newError(ErrInvalidFormat, "invalid timestamp format: %s", value)
+				return nil, newError(errInvalidFormat, "invalid timestamp format: %s", value)
 			}
 			parsed.timestamp = t
 		default:
-			return nil, newError(ErrUnknownParameter, "%s", key)
+			return nil, newError(errUnknownParameter, "%s", key)
 		}
 	}
 
 	// Validate that at least one search key is provided
 	if parsed.rowKey == "" && parsed.rowKeyPrefix == "" && parsed.rowKeyRegex == "" {
-		return nil, newError(ErrMissingKey, "missing search key: provide one of key, prefix, or regex")
+		return nil, newError(errMissingKey, "missing search key: provide one of key, prefix, "+
+			"or regex")
 	}
 
 	// Validate that exactly one search key type is provided
@@ -136,14 +137,14 @@ func parseRead(input string) (*readQuery, error) {
 	}
 
 	if keyCount > 1 {
-		return nil, newError(ErrInvalidFormat,
+		return nil, newError(errInvalidFormat,
 			"only one search key type allowed: provide exactly one of rowKey, rowKeyPrefix, "+
 				"or rowKeyRegex")
 	}
 
 	// Family is always required
 	if parsed.family == "" {
-		return nil, newError(ErrInvalidFormat, "missing family")
+		return nil, newError(errInvalidFormat, "missing family")
 	}
 
 	return parsed, nil

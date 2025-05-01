@@ -65,6 +65,8 @@ func (e *Engine) Start() error {
 	return nil
 }
 
+// Stop ensures the engine does not shutdown till all currently accepted operations are completed.
+// TODO: actually wait for all operations to finish
 func (e *Engine) Stop() error {
 	e.rwMutex.Lock()
 	defer e.rwMutex.Unlock()
