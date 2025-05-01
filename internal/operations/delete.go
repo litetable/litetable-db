@@ -2,6 +2,7 @@ package operations
 
 import (
 	"fmt"
+	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/reaper"
 	"sort"
@@ -42,7 +43,8 @@ func (m *Manager) delete(query []byte) error {
 		// Mark the entire row for deletion by adding tombstones to all families
 		for familyName, family := range row {
 			for qualifier := range family {
-				m.addTombstone(row, familyName, qualifier, parsed.timestamp, expiresAt)
+				m.addTombstone(row, parsed.rowKey, familyName, qualifier, parsed.timestamp,
+					expiresAt)
 			}
 			modifiedFamilies[familyName] = true
 		}
@@ -55,13 +57,14 @@ func (m *Manager) delete(query []byte) error {
 		if len(parsed.qualifiers) == 0 {
 			// Mark entire family for deletion
 			for qualifier := range family {
-				m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, expiresAt)
+				m.addTombstone(row, parsed.rowKey, parsed.family, qualifier, parsed.timestamp, expiresAt)
 			}
 		} else {
 			// Mark specific qualifiers
 			for _, qualifier := range parsed.qualifiers {
 				if _, exists := family[qualifier]; exists {
-					m.addTombstone(row, parsed.family, qualifier, parsed.timestamp, expiresAt)
+					m.addTombstone(row, parsed.rowKey, parsed.family, qualifier, parsed.timestamp,
+						expiresAt)
 				}
 			}
 		}
@@ -85,6 +88,7 @@ func (m *Manager) delete(query []byte) error {
 // can be overridden with a provided TTL.
 func (m *Manager) addTombstone(
 	row map[string]litetable.VersionedQualifier,
+	rowKey string,
 	family,
 	qualifier string,
 	timestamp time.Time,
@@ -92,13 +96,15 @@ func (m *Manager) addTombstone(
 ) {
 	values := row[family][qualifier]
 
-	// Insert the tombstone
-	values = append(values, litetable.TimestampedValue{
+	tombstone := litetable.TimestampedValue{
 		Value:       nil,
 		Timestamp:   timestamp,
 		IsTombstone: true,
 		ExpiresAt:   expiresAt,
-	})
+	}
+
+	// Insert the tombstone
+	values = append(values, tombstone)
 
 	// Sort versions descending by Timestamp
 	sort.Slice(values, func(i, j int) bool {
@@ -107,6 +113,12 @@ func (m *Manager) addTombstone(
 
 	// we are iterating on the actual memory map here.
 	row[family][qualifier] = values
+
+	m.cdc.Emit(&cdc_emitter.CDCParams{
+		Operation: litetable.OperationDelete,
+		RowKey:    rowKey,
+		Column:    tombstone,
+	})
 }
 
 type deleteQuery struct {

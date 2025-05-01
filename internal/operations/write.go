@@ -55,18 +55,23 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 	result.Columns[parsed.family] = make(litetable.VersionedQualifier)
 
 	for i, qualifier := range parsed.qualifiers {
-		result.Columns[parsed.family][qualifier] = []litetable.TimestampedValue{
-			{
-				Value:     parsed.values[i],
-				Timestamp: parsed.timestamp,
-			},
+		timestampedValue := litetable.TimestampedValue{
+			Value:     parsed.values[i],
+			Timestamp: parsed.timestamp,
 		}
+
+		// Store result
+		values := []litetable.TimestampedValue{timestampedValue}
+		result.Columns[parsed.family][qualifier] = values
+
+		// Emit CDC event with the complete information
+		m.cdc.Emit(&cdc_emitter.CDCParams{
+			Operation: litetable.OperationWrite,
+			RowKey:    parsed.rowKey,
+			Column:    timestampedValue,
+		})
 	}
 
-	m.cdc.Emit(&cdc_emitter.CDCParams{
-		Msg: fmt.Sprintf("write %s %s %s", parsed.rowKey, parsed.family, strings.Join(parsed.qualifiers, ",")),
-	})
-	
 	return json.Marshal(result)
 }
 

@@ -3,11 +3,14 @@ package cdc_emitter
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
 	"time"
 )
 
 type CDCParams struct {
-	Msg string `json:"message"`
+	Operation litetable.Operation        `json:"operation"`
+	RowKey    string                     `json:"rowKey"`
+	Column    litetable.TimestampedValue `json:"column"`
 }
 
 // Emit pushes a CDC event to the channel. This is how consumers get notifier
