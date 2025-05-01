@@ -4,25 +4,49 @@ import (
 	"errors"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/reaper"
+	"github.com/litetable/litetable-db/internal/wal"
+	"sync"
 )
+
+type writeAhead interface {
+	Apply(e *wal.Entry) error
+}
 
 type garbageCollector interface {
 	Reap(p *reaper.GCParams)
 }
 
+type storageManager interface {
+	GetData() *litetable.Data
+	GetFamilies() []string
+	UpdateFamilies(families []string) error
+}
+
 type Manager struct {
 	garbageCollector garbageCollector
+	writeAhead       writeAhead
 	defaultTTL       int64
+
+	rwMutex sync.RWMutex
+	storage storageManager
 }
 
 type Config struct {
 	GarbageCollector garbageCollector
+	WAL              writeAhead
+	Storage          storageManager
 }
 
 func (c *Config) validate() error {
 	var errGrp []error
 	if c.GarbageCollector == nil {
 		errGrp = append(errGrp, errors.New("garbage collector cannot be nil"))
+	}
+	if c.WAL == nil {
+		errGrp = append(errGrp, errors.New("WAL cannot be nil"))
+	}
+	if c.Storage == nil {
+		errGrp = append(errGrp, errors.New("storage cannot be nil"))
 	}
 	return errors.Join(errGrp...)
 }
@@ -35,12 +59,9 @@ func New(cfg *Config) (*Manager, error) {
 
 	return &Manager{
 		garbageCollector: cfg.GarbageCollector,
+		writeAhead:       cfg.WAL,
 		defaultTTL:       3600, // configure default for 1 hour
+		rwMutex:          sync.RWMutex{},
+		storage:          cfg.Storage,
 	}, nil
-}
-
-type ReadParams struct {
-	Query              []byte
-	Data               *litetable.Data
-	ConfiguredFamilies []string
 }

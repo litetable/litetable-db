@@ -1,22 +1,16 @@
 package engine
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/protocol"
 	"github.com/litetable/litetable-db/internal/storage"
 	wal2 "github.com/litetable/litetable-db/internal/wal"
-	"os"
 	"sync"
 )
 
-type query interface {
-	Read(params *protocol.ReadParams) ([]byte, error)
-	Write(params *protocol.WriteParams) ([]byte, error)
-	Delete(params *protocol.DeleteParams) error
-	Create(params *protocol.CreateParams) error
+type protocolManager interface {
+	RunOperation(buf []byte) ([]byte, error)
 }
 
 type wal interface {
@@ -34,12 +28,12 @@ type Engine struct {
 
 	allowedFamilies []string // Maps family names to allowed columns
 	familiesFile    string   // Path to store allowed family configuration
-	protocol        query
+	protocol        protocolManager
 }
 
 type Config struct {
 	WAL      wal
-	Protocol query
+	Protocol protocolManager
 	Storage  *storage.Manager
 }
 
@@ -65,18 +59,11 @@ func New(cfg *Config) (*Engine, error) {
 	}
 
 	e := &Engine{
-		rwMutex:         sync.RWMutex{},
-		maxBufferSize:   4096,
-		wal:             cfg.WAL,
-		storage:         cfg.Storage,
-		allowedFamilies: make([]string, 0),
-		familiesFile:    cfg.Storage.FamilyLockFile(),
-		protocol:        cfg.Protocol,
-	}
-
-	// Load allowed families from disk
-	if err := e.loadAllowedFamilies(); err != nil {
-		return nil, err
+		rwMutex:       sync.RWMutex{},
+		maxBufferSize: 4096,
+		wal:           cfg.WAL,
+		storage:       cfg.Storage,
+		protocol:      cfg.Protocol,
 	}
 
 	return e, nil
@@ -96,26 +83,4 @@ func (e *Engine) Stop() error {
 
 func (e *Engine) Name() string {
 	return "Litetable Engine"
-}
-
-func (e *Engine) saveAllowedFamilies(families []string) error {
-	e.allowedFamilies = families
-	data, err := json.Marshal(families)
-	if err != nil {
-		return fmt.Errorf("failed to marshal allowed families: %w", err)
-	}
-	return os.WriteFile(e.familiesFile, data, 0644)
-}
-
-func (e *Engine) loadAllowedFamilies() error {
-	data, err := os.ReadFile(e.familiesFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// File doesn't exist yet, not an error
-			return nil
-		}
-		return fmt.Errorf("failed to read allowed families file: %w", err)
-	}
-
-	return json.Unmarshal(data, &e.allowedFamilies)
 }

@@ -17,15 +17,17 @@ type DeleteParams struct {
 }
 
 // Delete marks data for deletion in the store using tombstones
-func (m *Manager) Delete(params *DeleteParams) error {
+func (m *Manager) delete(query []byte) error {
 	// Parse the query
-	parsed, err := parseDeleteQuery(string(params.Query))
+	parsed, err := parseDeleteQuery(string(query))
 	if err != nil {
 		return err
 	}
 
+	data := m.storage.GetData()
+
 	// Check if the row exists
-	row, exists := (*params.Data)[parsed.rowKey]
+	row, exists := (*data)[parsed.rowKey]
 	if !exists {
 		return fmt.Errorf("row not found: %s", parsed.rowKey)
 	}

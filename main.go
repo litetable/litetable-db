@@ -75,18 +75,20 @@ func initialize() (*app.App, error) {
 
 	deps = append(deps, reaperGC)
 
-	// Protocol is the package that interacts with the LiteTable Data. It decides how to read and write
-	// data to the disk storage and sends values for Garbage Collection.
-	protocolManager, err := protocol.New(&protocol.Config{
-		GarbageCollector: reaperGC,
+	// create the WAL manager
+	walManager, err := wal.New(&wal.Config{
+		Path: certDir,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// create the WAL manager
-	walManager, err := wal.New(&wal.Config{
-		Path: certDir,
+	// Protocol is the package that interacts with the LiteTable Data. It decides how to read and write
+	// data to the disk storage and sends values for Garbage Collection.
+	protocolManager, err := protocol.New(&protocol.Config{
+		GarbageCollector: reaperGC,
+		WAL:              walManager,
+		Storage:          diskStorage,
 	})
 	if err != nil {
 		return nil, err

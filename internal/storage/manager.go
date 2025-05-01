@@ -33,6 +33,9 @@ type Manager struct {
 
 	latestSnapshotFile string
 
+	allowedFamilies []string // Maps family names to allowed columns
+	familiesFile    string   // Path to store allowed family configuration
+
 	procCtx   context.Context
 	ctxCancel context.CancelFunc
 }
@@ -83,11 +86,17 @@ func New(cfg *Config) (*Manager, error) {
 		dataDir:          dirName,
 		data:             make(litetable.Data),
 		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
+		allowedFamilies:  make([]string, 0),
+		familiesFile:     filepath.Join(dirName, dataFamilyLockFile),
 		maxSnapshotLimit: cfg.MaxSnapshotLimit,
 		mutex:            sync.RWMutex{},
+		procCtx:          ctx,
+		ctxCancel:        cancel,
+	}
 
-		procCtx:   ctx,
-		ctxCancel: cancel,
+	// load any existing column families
+	if err := m.loadAllowedFamilies(); err != nil {
+		return nil, fmt.Errorf("failed to load allowed families: %w", err)
 	}
 
 	return m, nil

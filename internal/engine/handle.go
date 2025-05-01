@@ -2,10 +2,7 @@ package engine
 
 import (
 	"fmt"
-	"github.com/litetable/litetable-db/internal/protocol"
-	wal2 "github.com/litetable/litetable-db/internal/wal"
 	"net"
-	"time"
 )
 
 // Handle implements the server.handler interface, allowing the engine to be used to respond
@@ -25,101 +22,13 @@ func (e *Engine) Handle(conn net.Conn) {
 		return
 	}
 
-	msgType, queryBytes, decodeErr := protocol.Decode(buf)
-	if decodeErr != nil {
-		_, writeErr := conn.Write([]byte(decodeErr.Error()))
-		if writeErr != nil {
-			fmt.Printf("Failed to write error: %v\n", writeErr)
-		}
-		return
-	}
-
-	// if query bytes are empty, return an error
-	if len(queryBytes) == 0 {
-		_, err = conn.Write([]byte("Empty query"))
-		if err != nil {
-			fmt.Printf("Error writing response: %v\n", err)
-		}
-		return
-	}
-
-	// Only append to the WAL if this is not a READ
-	if msgType != protocol.Read {
-		newEntry := &wal2.Entry{
-			Protocol:  msgType,
-			Query:     queryBytes,
-			Timestamp: time.Now(),
-		}
-		if err = e.wal.Apply(newEntry); err != nil {
-			fmt.Printf("Failed to apply entry: %v\n", err)
-			_, err = conn.Write([]byte(err.Error()))
-			if err != nil {
-				fmt.Printf("Error writing response: %v\n", err)
-			}
-			return
-		}
-	}
-
-	// Lock for writing
-	e.rwMutex.Lock()
-	defer e.rwMutex.Unlock()
-
 	var response []byte
-
-	switch msgType {
-	case protocol.Create:
-		err = e.protocol.Create(&protocol.CreateParams{
-			Query:              queryBytes,
-			ConfiguredFamilies: e.allowedFamilies,
-			CB:                 e.saveAllowedFamilies,
-		})
-		if err != nil {
-			response = []byte(err.Error())
-		} else {
-			response = []byte("Family created successfully")
-		}
-
-	case protocol.Write:
-		result, writeErr := e.protocol.Write(&protocol.WriteParams{
-			Query:              queryBytes,
-			Data:               e.storage.GetData(),
-			ConfiguredFamilies: e.allowedFamilies,
-		})
-		if writeErr != nil {
-			response = []byte(writeErr.Error())
-		} else {
-			response = result
-		}
-	case protocol.Read:
-		result, readErr := e.protocol.Read(&protocol.ReadParams{
-			Query:              queryBytes,
-			Data:               e.storage.GetData(),
-			ConfiguredFamilies: e.allowedFamilies,
-		})
-		if readErr != nil {
-			response = []byte(readErr.Error())
-		} else {
-			response = result
-		}
-	case protocol.Delete:
-		deleteErr := e.protocol.Delete(&protocol.DeleteParams{
-			Query:              queryBytes,
-			Data:               e.storage.GetData(),
-			ConfiguredFamilies: e.allowedFamilies,
-		})
-		if deleteErr != nil {
-			response = []byte(deleteErr.Error())
-		} else {
-			response = []byte("OK")
-		}
-	case protocol.Unknown:
-		err = fmt.Errorf("unknown operation")
-		response = []byte("ERROR: Unknown operation ")
-	}
-
-	// Check for any errors
+	res, err := e.protocol.RunOperation(buf)
 	if err != nil {
-		fmt.Printf("Error writing response: %v\n", err)
+		fmt.Printf("Error handling request: %v\n", err)
+		response = []byte(fmt.Sprintf("Error: %v", err))
+	} else {
+		response = res
 	}
 
 	// Write the response to the connection

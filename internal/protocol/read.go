@@ -11,21 +11,22 @@ import (
 	"time"
 )
 
-// Read applies a read query over a datasource following the Litetable protocol.
-func (m *Manager) Read(params *ReadParams) ([]byte, error) {
+// read applies a read query over a datasource following the Litetable protocol.
+func (m *Manager) read(query []byte) ([]byte, error) {
 	// Parse the query
-	parsed, err := parseRead(string(params.Query))
+	parsed, err := parseRead(string(query))
 	if err != nil {
 		return nil, err
 	}
 
-	if !isFamilyAllowed(params.ConfiguredFamilies, parsed.family) {
+	if !isFamilyAllowed(m.storage.GetFamilies(), parsed.family) {
 		return nil, fmt.Errorf("column family does not exist: %s", parsed.family)
 	}
 
+	data := m.storage.GetData()
 	// Case 1: Direct row key lookup
 	if parsed.rowKey != "" {
-		result, readRowErr := parsed.readRowKey(params.Data)
+		result, readRowErr := parsed.readRowKey(data)
 		if readRowErr != nil {
 			return nil, readRowErr
 		}
@@ -35,7 +36,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 
 	// Case 2: Row key prefix filtering
 	if parsed.rowKeyPrefix != "" {
-		result, filterRowsErr := parsed.filterRowsByPrefix(params.Data)
+		result, filterRowsErr := parsed.filterRowsByPrefix(data)
 		if filterRowsErr != nil {
 			return nil, filterRowsErr
 		}
@@ -44,7 +45,7 @@ func (m *Manager) Read(params *ReadParams) ([]byte, error) {
 
 	// Case 3: Row key regex matching
 	if parsed.rowKeyRegex != "" {
-		result, readRowsErr := parsed.readRowsByRegex(params.Data)
+		result, readRowsErr := parsed.readRowsByRegex(data)
 		if readRowsErr != nil {
 			return nil, readRowsErr
 		}

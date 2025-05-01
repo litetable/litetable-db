@@ -6,13 +6,12 @@ import (
 )
 
 type CreateParams struct {
-	Query              []byte
-	ConfiguredFamilies []string
-	CB                 func([]string) error
+	Query []byte
+	CB    func([]string) error
 }
 
-func (m *Manager) Create(params *CreateParams) error {
-	input := string(params.Query)
+func (m *Manager) create(query []byte) error {
+	input := string(query)
 	parts := strings.Fields(input)
 
 	var familyValue string
@@ -36,30 +35,6 @@ func (m *Manager) Create(params *CreateParams) error {
 	// Split the family value by commas to get individual family names
 	families := strings.Split(familyValue, ",")
 
-	// create a copy of configured families
-	newFamilies := make([]string, len(params.ConfiguredFamilies))
-	copy(newFamilies, params.ConfiguredFamilies)
-
-	// Add each family to the slice if it doesn't already exist
-	for _, family := range families {
-		family = strings.TrimSpace(family)
-		if family == "" {
-			continue
-		}
-
-		exists := false
-		for _, existing := range newFamilies {
-			if existing == family {
-				exists = true
-				break
-			}
-		}
-
-		if !exists {
-			newFamilies = append(newFamilies, family)
-		}
-	}
-
 	// Call any provided callback function
-	return params.CB(newFamilies)
+	return m.storage.UpdateFamilies(families)
 }

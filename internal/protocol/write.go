@@ -16,33 +16,35 @@ type WriteParams struct {
 }
 
 // Write processes a mutation to update the data store
-func (m *Manager) Write(params *WriteParams) ([]byte, error) {
+func (m *Manager) Write(query []byte) ([]byte, error) {
 	// Parse the query
-	parsed, err := parseWriteQuery(string(params.Query))
+	parsed, err := parseWriteQuery(string(query))
 	if err != nil {
 		return nil, err
 	}
 
 	// Validate the family is allowed
-	if !isFamilyAllowed(params.ConfiguredFamilies, parsed.family) {
+	if !isFamilyAllowed(m.storage.GetFamilies(), parsed.family) {
 		return nil, fmt.Errorf("column family not allowed: %s", parsed.family)
 	}
 
+	data := m.storage.GetData()
+
 	// Ensure the row exists
-	if _, exists := (*params.Data)[parsed.rowKey]; !exists {
-		(*params.Data)[parsed.rowKey] = make(map[string]litetable.VersionedQualifier)
+	if _, exists := (*data)[parsed.rowKey]; !exists {
+		(*data)[parsed.rowKey] = make(map[string]litetable.VersionedQualifier)
 	}
 
 	// Ensure the family exists
-	if _, exists := (*params.Data)[parsed.rowKey][parsed.family]; !exists {
-		(*params.Data)[parsed.rowKey][parsed.family] = make(litetable.VersionedQualifier)
+	if _, exists := (*data)[parsed.rowKey][parsed.family]; !exists {
+		(*data)[parsed.rowKey][parsed.family] = make(litetable.VersionedQualifier)
 	}
 
 	// Write all qualifier-value pairs with the same timestamp
 	for i, qualifier := range parsed.qualifiers {
 		value := parsed.values[i]
-		(*params.Data)[parsed.rowKey][parsed.family][qualifier] = append(
-			(*params.Data)[parsed.rowKey][parsed.family][qualifier],
+		(*data)[parsed.rowKey][parsed.family][qualifier] = append(
+			(*data)[parsed.rowKey][parsed.family][qualifier],
 			litetable.TimestampedValue{
 				Value:     value,
 				Timestamp: parsed.timestamp,
