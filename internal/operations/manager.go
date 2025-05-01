@@ -1,11 +1,10 @@
-package protocol
+package operations
 
 import (
 	"errors"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/wal"
-	"sync"
 )
 
 type writeAhead interface {
@@ -26,9 +25,7 @@ type Manager struct {
 	garbageCollector garbageCollector
 	writeAhead       writeAhead
 	defaultTTL       int64
-
-	rwMutex sync.RWMutex
-	storage storageManager
+	storage          storageManager
 }
 
 type Config struct {
@@ -61,7 +58,6 @@ func New(cfg *Config) (*Manager, error) {
 		garbageCollector: cfg.GarbageCollector,
 		writeAhead:       cfg.WAL,
 		defaultTTL:       3600, // configure default for 1 hour
-		rwMutex:          sync.RWMutex{},
 		storage:          cfg.Storage,
 	}, nil
 }

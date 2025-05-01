@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"github.com/litetable/litetable-db/internal/app"
 	"github.com/litetable/litetable-db/internal/engine"
-	"github.com/litetable/litetable-db/internal/protocol"
+	"github.com/litetable/litetable-db/internal/operations"
 	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/storage"
@@ -85,7 +85,7 @@ func initialize() (*app.App, error) {
 
 	// Protocol is the package that interacts with the LiteTable Data. It decides how to read and write
 	// data to the disk storage and sends values for Garbage Collection.
-	protocolManager, err := protocol.New(&protocol.Config{
+	protocolManager, err := operations.New(&operations.Config{
 		GarbageCollector: reaperGC,
 		WAL:              walManager,
 		Storage:          diskStorage,

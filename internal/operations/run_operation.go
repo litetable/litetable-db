@@ -1,4 +1,4 @@
-package protocol
+package operations
 
 import (
 	"fmt"
@@ -32,17 +32,13 @@ func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
 
 	switch msgType {
 	case litetable.OperationCreate:
-		m.rwMutex.Lock()
 		err := m.create(queryBytes)
-		m.rwMutex.Unlock()
 		if err != nil {
 			return nil, err
 		}
 		response = []byte("Family created successfully")
 	case litetable.OperationWrite:
-		m.rwMutex.Lock()
 		result, writeErr := m.Write(queryBytes)
-		m.rwMutex.Unlock()
 		if writeErr != nil {
 			return nil, writeErr
 		}
@@ -54,9 +50,7 @@ func (m *Manager) RunOperation(buf []byte) ([]byte, error) {
 		}
 		response = result
 	case litetable.OperationDelete:
-		m.rwMutex.Lock()
 		deleteErr := m.delete(queryBytes)
-		m.rwMutex.Unlock()
 		if deleteErr != nil {
 			return nil, deleteErr
 		}

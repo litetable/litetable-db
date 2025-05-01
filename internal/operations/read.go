@@ -1,4 +1,4 @@
-package protocol
+package operations
 
 import (
 	"encoding/json"
@@ -67,7 +67,7 @@ type readQuery struct {
 }
 
 // parseRead parses a query and returns a ReadQuery which is used to safely run an operation.
-// If there are any errors, it will return a protocol.Error
+// If there are any errors, it will return a operations.Error
 func parseRead(input string) (*readQuery, error) {
 	parts := strings.Fields(input)
 	parsed := &readQuery{
