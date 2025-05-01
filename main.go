@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/litetable/litetable-db/internal/app"
+	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/engine"
 	"github.com/litetable/litetable-db/internal/operations"
 	"github.com/litetable/litetable-db/internal/reaper"
@@ -60,7 +61,6 @@ func initialize() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	deps = append(deps, diskStorage)
 
 	// create a new Reaper (aka Garbage Collector)
@@ -72,7 +72,6 @@ func initialize() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	deps = append(deps, reaperGC)
 
 	// create the WAL manager
@@ -82,6 +81,12 @@ func initialize() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cdcEmitter, err := cdc_emitter.New()
+	if err != nil {
+		return nil, err
+	}
+	deps = append(deps, cdcEmitter)
 
 	// Operations is the package that interacts with the LiteTable Data.
 	// It decides how to read and write
@@ -102,7 +107,6 @@ func initialize() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	deps = append(deps, engineHandler)
 
 	// create a LiteTable server
@@ -114,7 +118,6 @@ func initialize() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	deps = append(deps, srv)
 
 	application, err := app.CreateApp(&app.Config{
