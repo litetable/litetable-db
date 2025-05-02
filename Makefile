@@ -32,7 +32,6 @@ coverage: ## Run code coverage
 test: ## Run unit tests
 	go test -v ./... -coverprofile cover.tmp
 	grep -Ev "main.go|app|local|docs|_mock.go" cover.tmp > cover.out
-	go tool cover -func cover.out
 	make coverage
 	rm -rf cover.tmp
 

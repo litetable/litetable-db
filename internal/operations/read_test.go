@@ -10,6 +10,7 @@ import (
 )
 
 func TestParseRead(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		input       []byte
 		expected    *readQuery
@@ -91,6 +92,7 @@ func TestParseRead(t *testing.T) {
 }
 
 func TestReadQuery_getLatestN(t *testing.T) {
+	t.Parallel()
 	// test data
 	values := []litetable.TimestampedValue{
 		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
@@ -178,6 +180,7 @@ func TestReadQuery_getLatestN(t *testing.T) {
 }
 
 func TestReadQuery_getLatestN_withTombstones(t *testing.T) {
+	t.Parallel()
 	// test data
 	values := []litetable.TimestampedValue{
 		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
@@ -236,4 +239,195 @@ func TestReadQuery_getLatestN_withTombstones(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test_readRowKey tests the readRowKey against the parsed params.
+func Test_readRowKey(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	mockdata := &litetable.Data{
+		"user:12345": {
+			"profile": {
+				"firstName": {
+					{Value: []byte("John"), Timestamp: now},
+				},
+				"lastName": {
+					{Value: []byte("Smith"), Timestamp: now},
+					{Value: []byte("Smithy"), Timestamp: now.Add(-time.Hour)},
+				},
+				"email": {
+					{Value: []byte("john@example.net"), Timestamp: now},
+					{Value: []byte("john@example.com"), Timestamp: now.Add(-time.Hour)},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		rq       *readQuery
+		mockdata *litetable.Data
+
+		expected             *litetable.Row
+		unexpectedQualifiers []string
+		expectedErr          error
+	}{
+		"row not found": {
+			rq: &readQuery{
+				rowKey: "user:12345",
+			},
+			mockdata:    &litetable.Data{},
+			expectedErr: errors.New("row not found: user:12345"),
+		},
+		"family not found": {
+			rq: &readQuery{
+				rowKey: "user:12345",
+				family: "wrestlers",
+			},
+			mockdata: &litetable.Data{
+				"user:12345": {
+					"main": {},
+				},
+			},
+			expectedErr: errors.New("family not found: wrestlers"),
+		},
+		"no qualifiers returns full family": {
+			rq: &readQuery{
+				rowKey: "user:12345",
+				family: "profile",
+				latest: 0,
+			},
+			mockdata: mockdata,
+			expected: &litetable.Row{
+				Key: "user:12345",
+				Columns: map[string]litetable.VersionedQualifier{
+					"profile": {
+						"firstName": {
+							{Value: []byte("John"), Timestamp: now},
+						},
+						"lastName": {
+							{Value: []byte("Smith"), Timestamp: now},
+							{Value: []byte("Smithy"), Timestamp: now.Add(-time.Hour)},
+						},
+						"email": {
+							{Value: []byte("john@example.net"), Timestamp: now},
+							{Value: []byte("john@example.com"), Timestamp: now.Add(-time.Hour)},
+						},
+					},
+				},
+			},
+		},
+		"no qualifiers with latestN=1 returns only latest value of each qualifier": {
+			rq: &readQuery{
+				rowKey: "user:12345",
+				family: "profile",
+				latest: 1,
+			},
+			mockdata: mockdata,
+			expected: &litetable.Row{
+				Key: "user:12345",
+				Columns: map[string]litetable.VersionedQualifier{
+					"profile": {
+						"firstName": {
+							{Value: []byte("John"), Timestamp: now},
+						},
+						"lastName": {
+							{Value: []byte("Smith"), Timestamp: now},
+						},
+						"email": {
+							{Value: []byte("john@example.net"), Timestamp: now},
+						},
+					},
+				},
+			},
+		},
+		"single qualifier returns only that column": {
+			rq: &readQuery{
+				rowKey:     "user:12345",
+				family:     "profile",
+				qualifiers: []string{"lastName"},
+				latest:     0,
+			},
+			mockdata:             mockdata,
+			unexpectedQualifiers: []string{"firstName", "email"},
+			expected: &litetable.Row{
+				Key: "user:12345",
+				Columns: map[string]litetable.VersionedQualifier{
+					"profile": {
+						"lastName": {
+							{Value: []byte("Smith"), Timestamp: now},
+							{Value: []byte("Smithy"), Timestamp: now.Add(-time.Hour)},
+						},
+					},
+				},
+			},
+		},
+		"single qualifier with latest1 returns only 1 record": {
+			rq: &readQuery{
+				rowKey:     "user:12345",
+				family:     "profile",
+				qualifiers: []string{"lastName"},
+				latest:     1,
+			},
+			mockdata:             mockdata,
+			unexpectedQualifiers: []string{"firstName", "email"},
+			expected: &litetable.Row{
+				Key: "user:12345",
+				Columns: map[string]litetable.VersionedQualifier{
+					"profile": {
+						"lastName": {
+							{Value: []byte("Smith"), Timestamp: now},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			req := require.New(t)
+
+			row, err := tc.rq.readRowKey(tc.mockdata)
+			if tc.expectedErr != nil {
+				req.Equal(tc.expectedErr.Error(), err.Error())
+			} else {
+				req.NoError(err)
+				req.NotNil(row)
+				req.Contains(row.Columns, tc.rq.family)
+				req.Equal(tc.expected.Key, row.Key)
+				mockFamily := (*tc.mockdata)[tc.rq.rowKey][tc.rq.family]
+
+				// if the latest is > 0 the columns should equal that number
+				if tc.rq.latest > 0 {
+					for qual, _ := range row.Columns[tc.rq.family] {
+						req.Equal(len(row.Columns[tc.rq.family][qual]), tc.rq.latest)
+					}
+				} else {
+					// for each qualifier and value in the response,
+					// ensure the same number of values
+					// and that the qualifier is in the mock data
+					for qualifier, values := range row.Columns[tc.rq.family] {
+						// make sure the qualifier is in the mock data
+						req.Contains(mockFamily, qualifier)
+						// ensure the same number of values as the mockdata
+						req.Equal(len(mockFamily[qualifier]), len(values))
+					}
+				}
+
+				// make sure the only qualifiers returned are the ones in the test array
+				if len(tc.rq.qualifiers) > 0 {
+					// make sure the qualifier amounts match
+					req.Equal(len(tc.rq.qualifiers), len(row.Columns[tc.rq.family]))
+
+					// for every unexpected qualifier, make sure it is not in the response
+					for _, uq := range tc.unexpectedQualifiers {
+						_, exists := row.Columns[tc.rq.family][uq]
+						req.False(exists, "unexpected qualifier %s found in response", uq)
+					}
+				}
+			}
+		})
+	}
+
 }
