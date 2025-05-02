@@ -17,8 +17,8 @@ const (
 )
 
 var (
-	standardSnapshotPruneLimit = 15
-	defaultSnapshotLimit       = 10
+	standardSnapshotPruneTime = 1 // TODO: make this not run every minute
+	defaultSnapshotLimit      = 10
 )
 
 // Manager handles persistent storage operations to a disk
@@ -85,9 +85,9 @@ func New(cfg *Config) (*Manager, error) {
 		rootDir:          cfg.RootDir,
 		dataDir:          dirName,
 		data:             make(litetable.Data),
-		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
+		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Minute,
 		allowedFamilies:  make([]string, 0),
-		familiesFile:     filepath.Join(dirName, dataFamilyLockFile),
+		familiesFile:     filepath.Join(cfg.RootDir, dataFamilyLockFile),
 		maxSnapshotLimit: cfg.MaxSnapshotLimit,
 		mutex:            sync.RWMutex{},
 		procCtx:          ctx,

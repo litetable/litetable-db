@@ -72,6 +72,7 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 		// we need to do a double != nil checks because we don't want to send for garbage
 		// collection before the data is saved.
 		if parsed.expiresAt != nil {
+			fmt.Println("calling reaper on write...")
 			m.garbageCollector.Reap(&reaper.ReapParams{
 				RowKey:     parsed.rowKey,
 				Family:     parsed.family,
@@ -127,7 +128,7 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 		qualifiers: []string{},
 		values:     [][]byte{},
 		timestamp:  time.Now(),
-		expiresAt:  &time.Time{},
+		expiresAt:  nil,
 		ttl:        nil,
 	}
 

@@ -108,8 +108,6 @@ func (r *Reaper) Stop() error {
 	}
 
 	// Wait for the reaper to finish
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 	return nil
 }
 

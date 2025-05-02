@@ -55,8 +55,8 @@ func initialize() (*app.App, error) {
 	// create a disk storage manager
 	diskStorage, err := storage.New(&storage.Config{
 		RootDir:          certDir,
-		FlushThreshold:   20,
-		MaxSnapshotLimit: 2,
+		FlushThreshold:   5, // create a snapshot every 5 minutes
+		MaxSnapshotLimit: 3, // keep 3 snapshots
 	})
 	if err != nil {
 		return nil, err

@@ -17,7 +17,7 @@ func (m *Manager) Start() error {
 	// Start the background process for snapshots
 	go func() {
 		ticker := time.NewTicker(m.snapshotDuration)
-		pruneTicker := time.NewTicker(time.Duration(standardSnapshotPruneLimit) * time.Minute)
+		pruneTicker := time.NewTicker(time.Duration(standardSnapshotPruneTime) * time.Minute)
 
 		defer func() {
 			ticker.Stop()
