@@ -66,7 +66,7 @@ func initialize() (*app.App, error) {
 	// create a new Reaper (aka Garbage Collector)
 	reaperGC, err := reaper.New(&reaper.Config{
 		Storage:    diskStorage,
-		GCInterval: 30,
+		GCInterval: 10,
 		Path:       certDir,
 	})
 	if err != nil {

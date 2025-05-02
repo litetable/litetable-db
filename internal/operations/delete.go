@@ -185,6 +185,11 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		}
 	}
 
+	// if TTL was provided, calculate the expiresAt time based on timestamp
+	if parsed.ttl > 0 {
+		parsed.expiresAt = parsed.timestamp.Add(parsed.ttl)
+	}
+	
 	// Validate required fields
 	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")

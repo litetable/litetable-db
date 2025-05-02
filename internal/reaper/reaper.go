@@ -49,13 +49,12 @@ func (r *Reaper) write(p *ReapParams) {
 	if err != nil {
 		fmt.Printf("failed to write GCParams to log file: %v\n", err)
 	}
+
+	fmt.Println("Wrote GCParams to log file:", string(data))
 }
 
 // garbageCollector runs the garbage collection over tombstones.
 func (r *Reaper) garbageCollector() {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
 	// Open the file
 	file, err := os.Open(r.filePath)
 	if err != nil {

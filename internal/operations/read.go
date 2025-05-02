@@ -174,9 +174,12 @@ func (r *readQuery) readRowKey(data *litetable.Data) (*litetable.Row, error) {
 
 	// If no qualifiers specified, return all qualifiers in the family
 	if len(r.qualifiers) == 0 {
-		// Copy all qualifiers and their values
 		for qualifier, values := range family {
-			result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
+			filteredValues := r.getLatestN(values, r.latest)
+			// Only add qualifier if it has values after tombstone filtering
+			if len(filteredValues) > 0 {
+				result.Columns[r.family][qualifier] = filteredValues
+			}
 		}
 	} else {
 		// Return only requested qualifiers
@@ -217,7 +220,11 @@ func (r *readQuery) filterRowsByPrefix(data *litetable.Data) (map[string]*liteta
 			// If no qualifiers specified, return all qualifiers in the family
 			if len(r.qualifiers) == 0 {
 				for qualifier, values := range family {
-					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
+					filteredValues := r.getLatestN(values, r.latest)
+					// Only add qualifier if it has values after tombstone filtering
+					if len(filteredValues) > 0 {
+						result.Columns[r.family][qualifier] = filteredValues
+					}
 				}
 			} else {
 				// Return only requested qualifiers
@@ -271,7 +278,11 @@ func (r *readQuery) readRowsByRegex(data *litetable.Data) (map[string]*litetable
 			// If no qualifiers specified, return all qualifiers in the family
 			if len(r.qualifiers) == 0 {
 				for qualifier, values := range family {
-					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
+					filteredValues := r.getLatestN(values, r.latest)
+					// Only add qualifier if it has values after tombstone filtering
+					if len(filteredValues) > 0 {
+						result.Columns[r.family][qualifier] = filteredValues
+					}
 				}
 			} else {
 				// Return only requested qualifiers
