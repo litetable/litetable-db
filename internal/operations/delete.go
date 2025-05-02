@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Delete marks data for deletion in the store using tombstones
+// delete marks data for garbage collection by placing tombstones in the column qualifier.
 func (m *Manager) delete(query []byte) error {
 	// Parse the query
 	parsed, err := parseDeleteQuery(string(query))
@@ -30,8 +30,10 @@ func (m *Manager) delete(query []byte) error {
 	// BigTable-like approach: Add tombstone markers
 	modifiedFamilies := make(map[string]bool)
 
+	// if a delete mutation comes without a family, the operation will apply a tombstone
+	// to all qualifiers in every family.
 	if parsed.family == "" {
-		// Mark the entire row for deletion by adding tombstones to all families
+		// Mark the entire row for deletion by adding tombstones to all qualifiers
 		for familyName, family := range row {
 			for qualifier := range family {
 				m.addTombstone(
@@ -45,11 +47,14 @@ func (m *Manager) delete(query []byte) error {
 			modifiedFamilies[familyName] = true
 		}
 	} else {
+		// if the family is specified, we will only append tombstones based on if qualifiers
+		// are provided
 		family, exists := row[parsed.family]
 		if !exists {
 			return fmt.Errorf("family not found: %s", parsed.family)
 		}
 
+		// if a family is provided without qualifiers, we mark the entire family for GC
 		if len(parsed.qualifiers) == 0 {
 			// Mark entire family for deletion
 			for qualifier := range family {
@@ -62,7 +67,7 @@ func (m *Manager) delete(query []byte) error {
 					parsed.expiresAt)
 			}
 		} else {
-			// Mark specific qualifiers
+			// otherwise, we should only apply tombstones to the qualifiers that are provided
 			for _, qualifier := range parsed.qualifiers {
 				if _, exists := family[qualifier]; exists {
 					m.addTombstone(

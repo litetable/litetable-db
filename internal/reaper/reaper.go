@@ -112,6 +112,10 @@ func (r *Reaper) garbageCollector() {
 		}
 	}
 
+	// lock to prevent concurrent writes to file
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	// Rewrite the file with only active entries
 	if err = r.rewriteGCLog(activeEntries); err != nil {
 		fmt.Printf("Error rewriting GC log file: %v\n", err)
@@ -121,6 +125,7 @@ func (r *Reaper) garbageCollector() {
 }
 
 func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
+
 	data := r.storage.GetData()
 
 	// Check if the row exists
@@ -137,17 +142,18 @@ func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
 		return true
 	}
 
-	// Lock for writing
+	// Reaper is modifying data from this point forward, so add a RWLock() on storage
 	r.storage.RWLock()
 	defer r.storage.RWUnlock()
 
 	changed := false
 
+	// if we have no qualifiers in our ReapParams, we should GC the entire family
 	if len(params.Qualifiers) == 0 {
 		delete(row, params.Family)
 		changed = true
 	} else {
-		// Process each qualifier
+		// For any qualifier in the params, we should parse and compare timestamps
 		for _, qualifier := range params.Qualifiers {
 			values, exists := family[qualifier]
 			if !exists {
@@ -155,19 +161,22 @@ func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
 				continue
 			}
 
-			// Filter out entries with timestamp ≤ params.Timestamp
-			var newValues []litetable.TimestampedValue
+			// Filter out entries with timestamp ≤ params.Timestamp. We don't need to specifically
+			// check for tombstones since all GC requires a timestamp.
+			// Anything before that timestamp is considered prime for reaping.
+			var remainingValues []litetable.TimestampedValue
 			for _, entry := range values {
+				// save the relevant entries
 				if entry.Timestamp.After(params.Timestamp) {
-					newValues = append(newValues, entry)
+					remainingValues = append(remainingValues, entry)
 				} else {
 					changed = true
 				}
 			}
 
 			// Update the qualifier with filtered values or remove it if empty
-			if len(newValues) > 0 {
-				family[qualifier] = newValues
+			if len(remainingValues) > 0 {
+				family[qualifier] = remainingValues
 			} else {
 				delete(family, qualifier)
 				changed = true
@@ -180,6 +189,7 @@ func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
 		}
 	}
 
+	// If there is no data in the row key, it does not need to exist.
 	if len(row) == 0 {
 		delete(*data, params.RowKey)
 	}

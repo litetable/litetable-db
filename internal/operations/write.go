@@ -12,7 +12,13 @@ import (
 	"time"
 )
 
-// write processes a mutation to update the data store
+// Write processes a mutation to update the data store; this is an append-only operation
+//
+// When writing a row, the following condition must be true:
+// 1. The family must be allowed in the table
+//
+// When writing to a row, an expiration time can be set for the row; this is called a tombstone.
+// Any data written before the tombstone will also be garbage collected.
 func (m *Manager) write(query []byte) ([]byte, error) {
 	// Parse the query
 	parsed, err := parseWriteQuery(string(query))
@@ -76,6 +82,7 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 		}
 	}
 
+	// The data has been saved, now let's just return what's written
 	// Create response with all written values
 	result := &litetable.Row{
 		Key:     parsed.rowKey,
