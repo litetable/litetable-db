@@ -12,7 +12,7 @@ func (m *Manager) create(query []byte) error {
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) != 2 {
-			return newError(errInvalidFormat, part)
+			return newError(errInvalidFormat, "%s", part)
 		}
 
 		key, value := kv[0], kv[1]

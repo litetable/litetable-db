@@ -17,43 +17,43 @@ func TestParseRead(t *testing.T) {
 	}{
 		"unknown parameter": {
 			input:       []byte("pizza=pepperoni"),
-			expectedErr: ErrUnknownParameter,
+			expectedErr: errUnknownParameter,
 		},
 		"invalid format": {
 			input:       []byte("family key=value"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"invalid latest value: text number": {
 			input:       []byte("family=col1 latest=one"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"invalid latest value: negative number": {
 			input:       []byte("family=col1 latest=-1"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"invalid timestamp format": {
 			input:       []byte("family=col1 timestamp=2023-10-01"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"missing search key - key": {
 			input:       []byte("qualifier=col1"),
-			expectedErr: ErrMissingKey,
+			expectedErr: errMissingKey,
 		},
 		"too many search keys - key and prefix": {
 			input:       []byte("key=key1 prefix=key2 family=col1"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"too many search keys - key and regex": {
 			input:       []byte("key=key1 regex=key2 family=col1"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"too many search keys - prefix and regex": {
 			input:       []byte("prefix=key1 regex=key2 family=col1"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"missing family": {
 			input:       []byte("key=key1"),
-			expectedErr: ErrInvalidFormat,
+			expectedErr: errInvalidFormat,
 		},
 		"valid read query": {
 			input: []byte("key=user:12345 family=main qualifier=firstName latest=5 timestamp=2023" +

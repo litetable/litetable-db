@@ -76,7 +76,7 @@ func CreateApp(cfg *Config, deps ...Dependency) (*App, error) {
 func (a *App) Run(ctx context.Context) error {
 	// This first call is defensive because Run is a public function. We do not want a consumer
 	// to call this more than once.
-	if a.runCalled.Load() == true {
+	if a.runCalled.Load() {
 		return errors.New("run has already been called")
 	}
 

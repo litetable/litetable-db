@@ -88,14 +88,3 @@ func (m *Manager) Apply(e *Entry) error {
 
 	return nil
 }
-
-// filePath returns the location of the WAL file
-func (m *Manager) filePath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", errors.New("failed to get home directory: " + err.Error())
-	}
-	walPath := filepath.Join(homeDir, ".litetable/wal", defaultWALFile)
-
-	return walPath, nil
-}
