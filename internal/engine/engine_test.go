@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestNew2(t *testing.T) {
+func TestNew(t *testing.T) {
 	t.Parallel()
 
 	req := require.New(t)
