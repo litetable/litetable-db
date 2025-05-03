@@ -24,17 +24,8 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 	}
 
 	data := m.storage.GetData()
-	// Case 1: Direct row key lookup
-	if parsed.rowKey != "" {
-		result, readRowErr := parsed.readRowKey(data)
-		if readRowErr != nil {
-			return nil, readRowErr
-		}
 
-		return json.Marshal(result)
-	}
-
-	// Case 2: Row key prefix filtering
+	// Alt case 1: Row key prefix filtering
 	if parsed.rowKeyPrefix != "" {
 		result, filterRowsErr := parsed.filterRowsByPrefix(data)
 		if filterRowsErr != nil {
@@ -43,7 +34,7 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 		return json.Marshal(result)
 	}
 
-	// Case 3: Row key regex matching
+	// Alt case 2: Row key regex matching
 	if parsed.rowKeyRegex != "" {
 		result, readRowsErr := parsed.filterRowsByRegex(data)
 		if readRowsErr != nil {
@@ -52,7 +43,13 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 		return json.Marshal(result)
 	}
 
-	return nil, newError(errInvalidFormat, "must provide rowKey, rowKeyPrefix, or rowKeyRegex")
+	// default to read by rowKey:
+	result, readRowErr := parsed.readRowKey(data)
+	if readRowErr != nil {
+		return nil, readRowErr
+	}
+
+	return json.Marshal(result)
 }
 
 // readQuery are the parameters for any supported read query

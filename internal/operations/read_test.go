@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"sort"
 	"strings"
 	"testing"
@@ -665,6 +666,145 @@ func Test_filterRowsByRegex(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func Test_read(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	mockdata := &litetable.Data{
+		"user:12345": {
+			"profile": {
+				"firstName": {
+					{Value: []byte("John"), Timestamp: now},
+				},
+				"lastName": {
+					{Value: []byte("Smith"), Timestamp: now},
+				},
+				"email": {
+					{Value: []byte("john@example.net"), Timestamp: now},
+				},
+			},
+		},
+		"user:12567": {
+			"profile": {
+				"firstName": {
+					{Value: []byte("Ruby"), Timestamp: now},
+				},
+				"lastName": {
+					{Value: []byte("Rocket"), Timestamp: now},
+				},
+				"email": {
+					{Value: []byte("ruby@example.net"), Timestamp: now},
+				},
+			},
+		},
+		"user:56789": {
+			"profile": {
+				"firstName": {
+					{Value: []byte("Rosie"), Timestamp: now},
+				},
+				"lastName": {
+					{Value: []byte("Rocket"), Timestamp: now},
+				},
+				"email": {
+					{Value: []byte("rosie@example.net"), Timestamp: now},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		query []byte
+
+		validateFamily bool
+		familyAllowed  bool
+
+		getData       bool
+		mockData      *litetable.Data
+		expectedError error
+	}{
+		"invalid read query": {
+			query:         []byte("key=user:12345 family=profile qualifier=firstName latest=5 timestamp=2023-10-01"),
+			expectedError: errors.New("invalid format: invalid timestamp format: 2023-10-01"),
+		},
+		"column family does not exist": {
+			query:          []byte("key=user:12345 family=profile qualifier=firstName latest=5 timestamp=2023-10-01T12:00:00Z"),
+			validateFamily: true,
+			expectedError:  errors.New("column family does not exist: profile"),
+		},
+		"row key doesn't exist in data": {
+			query:          []byte("key=user:99999 family=profile qualifier=firstName latest=5 timestamp=2023-10-01T12:00:00Z"),
+			validateFamily: true,
+			familyAllowed:  true,
+			getData:        true,
+			mockData: &litetable.Data{
+				"user:12345": {},
+			},
+			expectedError: errors.New("row not found: user:99999"),
+		},
+		"rowKey exists in data": {
+			query: []byte("key=user:12345 family=profile qualifier=firstName latest=5" +
+				" timestamp=2023-10-01T12:00:00Z"),
+			validateFamily: true,
+			familyAllowed:  true,
+			getData:        true,
+			mockData:       mockdata,
+		},
+		"rowKeyPrefix exists in data": {
+			query: []byte("prefix=user:12 family=profile qualifier=firstName latest=5" +
+				" timestamp=2023-10-01T12:00:00Z"),
+			validateFamily: true,
+			familyAllowed:  true,
+			getData:        true,
+			mockData:       mockdata,
+		},
+		"rowKeyRegex exists in data": {
+			query: []byte("regex=user:[0-9]+ family=profile qualifier=firstName latest=5" +
+				" timestamp=2023-10-01T12:00:00Z"),
+			validateFamily: true,
+			familyAllowed:  true,
+			getData:        true,
+			mockData:       mockdata,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			req := require.New(t)
+
+			mockStorage := NewMockstorageManager(ctrl)
+
+			if tc.validateFamily {
+				mockStorage.
+					EXPECT().
+					IsFamilyAllowed(gomock.Any()).
+					Return(tc.familyAllowed)
+			}
+
+			if tc.getData {
+				mockStorage.
+					EXPECT().
+					GetData().
+					Return(tc.mockData)
+			}
+
+			m := &Manager{
+				storage: mockStorage,
+			}
+			got, err := m.read(tc.query)
+
+			if tc.expectedError != nil {
+				req.Equal(tc.expectedError.Error(), err.Error())
+			} else {
+				req.NoError(err)
+				req.NotNil(got)
+			}
+
 		})
 	}
 }

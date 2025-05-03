@@ -8,6 +8,8 @@ import (
 	"github.com/litetable/litetable-db/internal/wal"
 )
 
+//go:generate mockgen -destination=manager_mock.go -package=operations -source=manager.go
+
 type writeAhead interface {
 	Apply(e *wal.Entry) error
 }
