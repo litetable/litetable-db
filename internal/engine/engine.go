@@ -3,8 +3,24 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sync"
+	"time"
 )
+
+//go:generate mockgen -destination=engine_mock.go -source=engine.go -package=engine
+
+// Conn is a wrapper around net.Conn to allow for mocking
+type Conn interface {
+	Read(b []byte) (n int, err error)
+	Write(b []byte) (n int, err error)
+	Close() error
+	LocalAddr() net.Addr
+	RemoteAddr() net.Addr
+	SetDeadline(t time.Time) error
+	SetReadDeadline(t time.Time) error
+	SetWriteDeadline(t time.Time) error
+}
 
 type ops interface {
 	Run(buf []byte) ([]byte, error)
@@ -64,5 +80,5 @@ func (e *Engine) Stop() error {
 }
 
 func (e *Engine) Name() string {
-	return "Litetable Engine"
+	return "LiteTable Engine"
 }

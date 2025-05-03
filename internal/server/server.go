@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/engine"
 	"net"
 	"sync"
 )
@@ -13,7 +14,7 @@ const (
 )
 
 type handler interface {
-	Handle(conn net.Conn)
+	Handle(conn engine.Conn)
 }
 
 type Server struct {

@@ -8,7 +8,7 @@ import (
 // Handle implements the server.handler interface, allowing the engine to be used to respond
 // to incoming TLS connections. Handlers take the connection but are not allowed to return an error.
 // Any errors should be written to the connection as to not block or crash the server.
-func (e *Engine) Handle(conn net.Conn) {
+func (e *Engine) Handle(conn Conn) {
 	defer func() {
 		err := conn.Close()
 		if err != nil {
@@ -18,7 +18,11 @@ func (e *Engine) Handle(conn net.Conn) {
 
 	buf, err := e.readConn(conn)
 	if err != nil {
-		fmt.Printf("Read error: %v\n", err)
+		// Write the error to the connection
+		_, writeErr := conn.Write([]byte(fmt.Sprintf("Error: %v", err)))
+		if writeErr != nil {
+			fmt.Printf("Error writing response: %v\n", writeErr)
+		}
 		return
 	}
 

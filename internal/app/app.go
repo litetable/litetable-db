@@ -81,7 +81,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	// defer funcs are always LIFO - don't forget!
-	ctxCancel, cancel := context.WithCancel(ctx) // we are cancelling the consumers context
+	ctxCancel, cancel := context.WithCancel(ctx) // we are cancelling the consumer context
 	defer func() {
 		close(a.depFailChan)
 		close(a.osSignalChan)
