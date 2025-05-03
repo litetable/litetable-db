@@ -547,3 +547,124 @@ func Test_filterRowsByPrefix(t *testing.T) {
 		})
 	}
 }
+
+func Test_filterRowsByRegex(t *testing.T) {
+	now := time.Now()
+	mockdata := &litetable.Data{
+		"user:12345": {
+			"profile": {
+				"firstName": {
+					{Value: []byte("John"), Timestamp: now},
+				},
+				"lastName": {
+					{Value: []byte("Smith"), Timestamp: now},
+				},
+				"email": {
+					{Value: []byte("john@example.net"), Timestamp: now},
+				},
+			},
+		},
+		"user:12567": {
+			"profile": {
+				"firstName": {
+					{Value: []byte("Ruby"), Timestamp: now},
+				},
+				"lastName": {
+					{Value: []byte("Rocket"), Timestamp: now},
+				},
+				"email": {
+					{Value: []byte("ruby@example.net"), Timestamp: now},
+				},
+			},
+		},
+		"user:56789": {
+			"profile": {
+				"firstName": {
+					{Value: []byte("Rosie"), Timestamp: now},
+				},
+				"lastName": {
+					{Value: []byte("Rocket"), Timestamp: now},
+				},
+				"email": {
+					{Value: []byte("rosie@example.net"), Timestamp: now},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		rq                   *readQuery
+		resultCount          int
+		expectedKeys         []string
+		expectedErr          error
+		unexpectedQualifiers []string
+	}{
+		"regex doesn't compile": {
+			rq: &readQuery{
+				rowKeyRegex: "*.user.*",
+				family:      "profile",
+			},
+			resultCount:  0,
+			expectedKeys: []string{},
+			expectedErr:  errors.New("invalid regex pattern: error parsing regexp: missing argument to repetition operator: `*`"),
+		},
+		"regex finds no matches": {
+			rq: &readQuery{
+				rowKeyRegex: "customer:[0-9]+",
+				family:      "profile",
+			},
+			resultCount:  0,
+			expectedKeys: []string{},
+			expectedErr:  errors.New("no rows found matching regex: customer:[0-9]+"),
+		},
+		"regex filter returns expected row count: 2": {
+			rq: &readQuery{
+				rowKeyRegex: "12",
+				family:      "profile",
+			},
+			resultCount:  2,
+			expectedKeys: []string{"firstName", "lastName", "email"},
+		},
+		"regex match with qualifier only returns rowKeys and qualifier": {
+			rq: &readQuery{
+				rowKeyRegex: "678",
+				family:      "profile",
+				qualifiers:  []string{"firstName"},
+			},
+			resultCount:          1,
+			expectedKeys:         []string{"firstName"},
+			unexpectedQualifiers: []string{"lastName", "email"},
+		},
+		"regex returns all rows in wide query": {
+			rq: &readQuery{
+				rowKeyRegex: "user:[0-9]+",
+				family:      "profile",
+			},
+			resultCount:  3,
+			expectedKeys: []string{"firstName", "lastName", "email"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			req := require.New(t)
+			row, err := tc.rq.filterRowsByRegex(mockdata)
+
+			if tc.expectedErr != nil {
+				req.Equal(tc.expectedErr.Error(), err.Error())
+			} else {
+				req.NoError(err)
+				req.Equal(tc.resultCount, len(row))
+
+				for _, uq := range tc.unexpectedQualifiers {
+					for rowKey, rowData := range row {
+						if strings.HasPrefix(rowKey, tc.rq.rowKeyPrefix) {
+							_, exists := rowData.Columns[tc.rq.family][uq]
+							req.False(exists, "unexpected qualifier %s found in response", uq)
+						}
+					}
+				}
+			}
+		})
+	}
+}

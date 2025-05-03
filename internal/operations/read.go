@@ -45,7 +45,7 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 
 	// Case 3: Row key regex matching
 	if parsed.rowKeyRegex != "" {
-		result, readRowsErr := parsed.readRowsByRegex(data)
+		result, readRowsErr := parsed.filterRowsByRegex(data)
 		if readRowsErr != nil {
 			return nil, readRowsErr
 		}
@@ -248,11 +248,11 @@ func (r *readQuery) filterRowsByPrefix(data *litetable.Data) (map[string]*liteta
 	return results, nil
 }
 
-// readRowsByRegex reads from all rows matching the specified regex and returns the requested data.
+// filterRowsByRegex reads from all rows matching the specified regex and returns the requested
+// data.
 // If the latest filter is provided in the query, it will return only the latest N versions of all
 // qualifiers in the family.
-func (r *readQuery) readRowsByRegex(data *litetable.Data) (map[string]*litetable.Row, error) {
-
+func (r *readQuery) filterRowsByRegex(data *litetable.Data) (map[string]*litetable.Row, error) {
 	regex, err := regexp.Compile(r.rowKeyRegex)
 	if err != nil {
 		return nil, fmt.Errorf("invalid regex pattern: %w", err)
