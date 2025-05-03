@@ -42,3 +42,7 @@ test-race: ## Run unit tests with race condition verification
 	@echo ""
 	go clean -testcache
 	go test ./... -race
+
+.PHONY: go-loc
+go-loc: ## Counts the number of lines of code
+	git ls-files | grep '\.go' | xargs wc -l
