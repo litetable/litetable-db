@@ -15,7 +15,7 @@ import (
 	cdc_emitter "github.com/litetable/litetable-db/internal/cdc_emitter"
 	litetable "github.com/litetable/litetable-db/internal/litetable"
 	reaper "github.com/litetable/litetable-db/internal/reaper"
-	wal "github.com/litetable/litetable-db/internal/wal"
+	wal "github.com/litetable/litetable-db/internal/storage/wal"
 	gomock "go.uber.org/mock/gomock"
 )
 

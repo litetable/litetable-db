@@ -3,7 +3,7 @@ package operations
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
-	wal2 "github.com/litetable/litetable-db/internal/wal"
+	wal2 "github.com/litetable/litetable-db/internal/storage/wal"
 	"time"
 )
 

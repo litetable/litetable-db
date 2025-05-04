@@ -5,7 +5,7 @@ import (
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/reaper"
-	"github.com/litetable/litetable-db/internal/wal"
+	"github.com/litetable/litetable-db/internal/storage/wal"
 )
 
 //go:generate mockgen -destination=manager_mock.go -package=operations -source=manager.go

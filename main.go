@@ -10,7 +10,7 @@ import (
 	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/storage"
-	"github.com/litetable/litetable-db/internal/wal"
+	"github.com/litetable/litetable-db/internal/storage/wal"
 	"os"
 	"path/filepath"
 )
