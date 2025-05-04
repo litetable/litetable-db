@@ -24,19 +24,57 @@ To get started with LiteTable DB, it is recommended to use the LiteTable CLI.
    ```bash
    go get github.com/litetable/litetable-cli
    ```
-2. Start the LiteTable server:
+2. Initialize a new LiteTable database:
    ```bash
-    litetable server --port=9330
+    litetable service init
     ```
-3. Use the CLI to interact with the server:
-   a. Run a simple write command:
-4. ```bash
-   litetable write -k user:12345 -f champions -q firstName -v John -q lastName -v Cena -q championships -v 15
+   
+3. Start the LiteTable server:
+   ```bash
+   litetable service start
    ```
-5. Append more data to the row key
-6. ```bash
-   litetable write -k user:12345 -f champions -q championships -v 16 &&
-   litetable write -k user:12345 -f champions -q championships -v 17
+
+4. Stop the LiteTable server:
+   ```bash
+   litetable service stop
+   ```
+
+With an initialized server, you can start writing data to it. The first write is to always 
+create a supported column family, which is accomplished by a `create` command.
+```bash
+litetable create --family <my_family>
+```
+
+A valid column family is required for every read and write command.
+
+### Create some data to your column family:
+1. With a running server, create a new column family:
+   ```bash
+   litetable create --family wrestlers
+   ```
+
+2. Create a new record for that column family
+   ```bash
+      litetable write -k champ:1 -f wrestlers -q firstName -v John -q lastName -v Cena -q  championships -v 15
+      ```
+3. Append more data to the row key
+   ```bash
+      litetable write -k champ:1 -f champions -q championships -v 16 &&
+      litetable write -k champ:1 -f champions -q championships -v 17
+      ```
+4. Read the data back
+   ```bash
+   litetable read -k champ:1 -f wrestlers
+   ```
+
+5. Delete a column qualifier 
+   ```bash
+   litetable delete -k champ:1 -f wrestlers -q championships
+   ```
+   
+6. Delete with custom TTL (number of seconds before garbage collection)
+   ```bash
+   litetable delete -k champ:1 -f wrestlers -q championships --ttl 300
    ```
 ---
 ## Data Structure
@@ -83,8 +121,8 @@ litetable read -k user:12345 -f champions -l 3
 This will return the latest 3 entries for every column qualifier in the `champions` family.
 
 ```
-rowKey: user:12345
-family: champions
+rowKey: champ:1
+family: wrestlers
   qualifier: name
     value 1: John (timestamp: 2025-04-27T00:08:38.15789-04:00)
   qualifier: lastName
@@ -100,12 +138,12 @@ return any rows < N.
 ---
 To get the latest 3 entries for a specific column qualifier, you can use the `-q` flag:
 ```
-litetable read -k user:012345 -f champions -q championships -l 3
+litetable read -k champ:1 -f wrestlers -q championships -l 3
 ```
 
 ```
-rowKey: user:12345
-family: champions
+rowKey: champ:1
+family: wrestlers
   qualifier: championships
     value 1: 17 (timestamp: 2025-04-27T00:08:57.876812-04:00)
     value 2: 16 (timestamp: 2025-04-27T00:08:55.300799-04:00)
