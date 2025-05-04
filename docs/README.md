@@ -1,6 +1,8 @@
 # LiteTable DB
 **LiteTable is in active development and should not be considered stable.**
 
+<img src="./images/litetable-logo-min.png" alt="LiteTable Logo" width="350px">
+
 LiteTable is a light-weight (pun intended), high-performance key-value database designed for fast 
 iteration and massive scale. Written in pure Go, it provides a simple, flexible and efficient 
 storage solution inspired by column-oriented database systems like Google BigTable and Apache Cassandra.
