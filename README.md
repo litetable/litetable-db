@@ -1,5 +1,5 @@
 # LiteTable DB
-**LiteTable is in active development.**
+**LiteTable is in active development and should not be considered stable.**
 
 LiteTable is a light-weight (pun intended), high-performance key-value database designed for fast 
 iteration and massive scale. Written in pure Go, it provides a simple, flexible and efficient 
