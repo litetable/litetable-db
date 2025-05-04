@@ -17,6 +17,8 @@ const (
 	OperationCreate Operation = "CREATE"
 	// OperationUnknown represents an unknown operation
 	OperationUnknown Operation = "UNKNOWN"
+	// OperationPing represents a health check operation
+	OperationPing Operation = "PING"
 )
 
 // TimestampedValue stores a value with its timestamp

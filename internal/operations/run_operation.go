@@ -10,13 +10,14 @@ import (
 // Run accepts a buffer and decodes it into a message type and query bytes.
 func (m *Manager) Run(buf []byte) ([]byte, error) {
 	msgType, queryBytes := litetable.Decode(buf)
+
 	// if query bytes are empty, return an error
-	if len(queryBytes) == 0 {
+	if len(queryBytes) == 0 && msgType != litetable.OperationPing {
 		return nil, errEmptyQuery
 	}
 
 	// Only append to the WAL if this is not a READ or UNKNOWN
-	if msgType != litetable.OperationRead && msgType != litetable.OperationUnknown {
+	if msgType != litetable.OperationRead && msgType != litetable.OperationUnknown && msgType != litetable.OperationPing {
 		newEntry := &wal2.Entry{
 			Operation: msgType,
 			Query:     queryBytes,
@@ -31,6 +32,12 @@ func (m *Manager) Run(buf []byte) ([]byte, error) {
 	var response []byte
 
 	switch msgType {
+	case litetable.OperationPing:
+		if m.isHealthy {
+			response = []byte("Healthy")
+		} else {
+			response = []byte("ERROR: Server is not healthy")
+		}
 	case litetable.OperationCreate:
 		err := m.create(queryBytes)
 		if err != nil {

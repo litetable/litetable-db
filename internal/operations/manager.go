@@ -34,6 +34,7 @@ type Manager struct {
 	defaultTTL       int64
 	storage          storageManager
 	cdc              cdc
+	isHealthy        bool
 }
 
 type Config struct {
@@ -72,5 +73,6 @@ func New(cfg *Config) (*Manager, error) {
 		defaultTTL:       3600, // configure default for 1 hour
 		storage:          cfg.Storage,
 		cdc:              cfg.CDC,
+		isHealthy:        true,
 	}, nil
 }

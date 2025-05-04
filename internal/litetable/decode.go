@@ -8,6 +8,10 @@ func Decode(buf []byte) (Operation, []byte) {
 
 	// Early return based on first byte
 	switch buf[0] {
+	case 'P': // PING
+		if len(buf) >= 5 && buf[1] == 'I' && buf[2] == 'N' && buf[3] == 'G' && buf[4] == ' ' {
+			return OperationPing, buf[5:]
+		}
 	case
 		'R': // READ
 		if len(buf) >= 5 && buf[1] == 'E' && buf[2] == 'A' && buf[3] == 'D' && buf[4] == ' ' {
