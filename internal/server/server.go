@@ -23,6 +23,7 @@ type Server struct {
 	certificate tls.Certificate
 	listener    net.Listener
 	port        string
+	address     string
 	handler     handler
 
 	// configuration for handling connections
@@ -34,6 +35,7 @@ type Server struct {
 
 type Config struct {
 	Certificate    *tls.Certificate
+	Address        string
 	Port           string
 	Handler        handler
 	MaxConnections int
@@ -45,6 +47,9 @@ func (c *Config) validate() error {
 
 	if c.Certificate == nil {
 		errGrp = append(errGrp, errors.New("certificate is required"))
+	}
+	if c.Address == "" {
+		errGrp = append(errGrp, errors.New("address is required"))
 	}
 	if c.Port == "" {
 		errGrp = append(errGrp, errors.New("port is required"))
@@ -65,14 +70,16 @@ func New(cfg *Config) (*Server, error) {
 
 	var listener net.Listener
 	var err error
+
+	connAddress := fmt.Sprintf("%s:%s", cfg.Address, cfg.Port)
 	if cfg.EnableTLS {
 		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{*cfg.Certificate},
 			MinVersion:   tls.VersionTLS12,
 		}
-		listener, err = tls.Listen("tcp", ":"+cfg.Port, tlsConfig)
+		listener, err = tls.Listen("tcp", connAddress, tlsConfig)
 	} else {
-		listener, err = net.Listen("tcp", ":"+cfg.Port)
+		listener, err = net.Listen("tcp", connAddress)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create listener: %w", err)
@@ -86,6 +93,7 @@ func New(cfg *Config) (*Server, error) {
 	return &Server{
 		certificate:    *cfg.Certificate,
 		listener:       listener,
+		address:        cfg.Address,
 		port:           cfg.Port,
 		handler:        cfg.Handler,
 		maxConnections: maxConns,

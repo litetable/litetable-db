@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"github.com/litetable/litetable-db/internal/app"
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
+	"github.com/litetable/litetable-db/internal/config"
 	"github.com/litetable/litetable-db/internal/engine"
 	"github.com/litetable/litetable-db/internal/operations"
 	"github.com/litetable/litetable-db/internal/reaper"
@@ -29,7 +30,6 @@ const (
 )
 
 func main() {
-	initLogging()
 	application, err := initialize()
 	if err != nil {
 		panic(err)
@@ -42,6 +42,13 @@ func main() {
 
 func initialize() (*app.App, error) {
 	var deps []app.Dependency
+
+	cfg, err := config.NewConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	initLogging(cfg)
 
 	// load the defaults from the os.HomeDir
 	homeDir, err := os.UserHomeDir()
@@ -63,8 +70,8 @@ func initialize() (*app.App, error) {
 	// create a disk storage manager
 	diskStorage, err := storage.New(&storage.Config{
 		RootDir:          certDir,
-		FlushThreshold:   20, // create a snapshot every 5 minutes
-		MaxSnapshotLimit: 3,  // keep 3 snapshots
+		FlushThreshold:   cfg.BackupTimer,      // create a snapshot every 5 minutes
+		MaxSnapshotLimit: cfg.MaxSnapshotLimit, // keep 3 snapshots
 	})
 	if err != nil {
 		return nil, err
@@ -74,7 +81,7 @@ func initialize() (*app.App, error) {
 	// create a new Reaper (aka Garbage Collector)
 	reaperGC, err := reaper.New(&reaper.Config{
 		Storage:    diskStorage,
-		GCInterval: 60, // run every 60 seconds
+		GCInterval: cfg.GarbageCollectionTimer, // run every 60 seconds
 		Path:       certDir,
 	})
 	if err != nil {
@@ -91,8 +98,8 @@ func initialize() (*app.App, error) {
 	}
 
 	cdcEmitter, err := cdc_emitter.New(&cdc_emitter.Config{
-		Port:    32496,
-		Address: "127.0.0.1",
+		Port:    32496, // all CDC events will be sent to this port
+		Address: cfg.ServerAddress,
 	})
 	if err != nil {
 		return nil, err
@@ -124,7 +131,8 @@ func initialize() (*app.App, error) {
 	// create a LiteTable server
 	srv, err := server.New(&server.Config{
 		Certificate: &cert,
-		Port:        "9443",
+		Port:        cfg.ServerPort,
+		Address:     cfg.ServerAddress,
 		Handler:     engineHandler,
 	})
 	if err != nil {
@@ -134,7 +142,7 @@ func initialize() (*app.App, error) {
 
 	application, err := app.CreateApp(&app.Config{
 		ServiceName: "LiteTable DB",
-		StopTimeout: 5,
+		StopTimeout: 30,
 	}, deps...)
 	if err != nil {
 		return nil, err
@@ -143,14 +151,14 @@ func initialize() (*app.App, error) {
 	return application, nil
 }
 
-func initLogging() {
+func initLogging(cfg *config.Config) {
 	// if deployed to google, change the severity key
-	if os.Getenv("CLOUD_ENVIRONMENT") == "google" {
+	if cfg.CloudEnvironment == "google" {
 		zerolog.LevelFieldName = googleSeverityKey
 	}
 
 	// for sanity's sake - make the dev logs easier to read and parse
-	if os.Getenv("DEBUG") == "true" {
+	if cfg.Debug {
 		output := zerolog.ConsoleWriter{
 			Out:        os.Stdout,
 			TimeFormat: time.RFC3339,
