@@ -4,7 +4,7 @@ import (
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/storage"
-	"github.com/litetable/litetable-db/internal/wal"
+	"github.com/litetable/litetable-db/internal/storage/wal"
 	"github.com/stretchr/testify/require"
 	"testing"
 )

@@ -1,74 +1,21 @@
 package storage
 
-import (
-	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
-	"path/filepath"
-	"time"
-)
-
-// Start initializes disk storage for the manager.
-func (m *Manager) Start() error {
-
-	if err := m.loadFromLatestSnapshot(); err != nil {
-		return err
-	}
-
-	// Start the background process for snapshots
-	go func() {
-		ticker := time.NewTicker(m.snapshotDuration)
-		pruneTicker := time.NewTicker(time.Duration(standardSnapshotPruneTime) * time.Minute)
-
-		defer func() {
-			ticker.Stop()
-			pruneTicker.Stop()
-		}()
-
-		for {
-			select {
-			case <-m.procCtx.Done():
-				return
-			case <-ticker.C:
-				err := m.saveSnapshot()
-				if err != nil {
-					fmt.Printf("failed to save snapshot: %v\n", err)
-				}
-			case <-pruneTicker.C:
-				m.maintainSnapshotLimit()
-			}
-		}
-	}()
-	return nil
-}
-
-func (m *Manager) Stop() error {
-	if m.ctxCancel != nil {
-		m.ctxCancel()
-	}
-
-	// Flush any remaining data
-	return m.saveSnapshot()
-}
-
-func (m *Manager) Name() string {
-	return "Disk Storage"
-}
-
-// GetData Provides access to the data
-func (m *Manager) GetData() *litetable.Data {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return &m.data
-}
-
-func (m *Manager) FamilyLockFile() string {
-	return filepath.Join(m.rootDir, dataFamilyLockFile)
-}
-
-func (m *Manager) RWLock() {
+// MarkRowChanged will save the row key and family name to the changedRows map.
+//
+// We are using an empty struct{} because it takes 0 bytes.
+func (m *Manager) MarkRowChanged(family, rowKey string) {
 	m.mutex.Lock()
-}
+	defer m.mutex.Unlock()
 
-func (m *Manager) RWUnlock() {
-	m.mutex.Unlock()
+	if m.changedRows == nil {
+		m.changedRows = make(map[string]map[string]struct{})
+	}
+
+	if _, exists := m.changedRows[rowKey]; !exists {
+		m.changedRows[rowKey] = make(map[string]struct{})
+	}
+
+	// Add the family to the row key (this may be overwriting, but that's okay because
+	// we just want to make sure the family is in the map)
+	m.changedRows[rowKey][family] = struct{}{}
 }

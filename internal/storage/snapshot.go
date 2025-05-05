@@ -1,3 +1,14 @@
+// Package storage provides the interface for data storage management.
+//
+// Saving to disk is fairly straightforwrad, but snapshotting is a process that requires
+// some thinking.
+//
+// My longterm goal with snapshotting is to support incremental snapshots for appends and
+// full snapshots every 15 or so.
+//
+// Garbage collection would continue to be handle by the reaper.
+//
+// The current approach will be to save the memory pointers of the data saved
 package storage
 
 import (
