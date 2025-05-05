@@ -1,7 +1,7 @@
 # LiteTable DB
 **LiteTable is in active development and should not be considered stable.**
 
-<img src="./images/litetable-logo-min.png" alt="LiteTable Logo" width="350px">
+<img src="./images/litetabledb-min.png" alt="LiteTable Logo" width="350px">
 
 LiteTable is a light-weight (pun intended), high-performance NoSQL database designed for fast 
 iteration and developer convenience. It provides a simple, flexible and efficient 
