@@ -7,6 +7,7 @@ LiteTable is a light-weight (pun intended), high-performance NoSQL database desi
 iteration and developer convenience. It provides a simple, flexible and efficient 
 storage solution inspired by column-oriented database systems such as: 
 - Google BigTable
+- Apache HBase
 - Apache Cassandra
 
 and other systems such as Valkey and Prometheus, to name a few.
@@ -116,8 +117,10 @@ Using the `write` command from above returns the following data.
 }
 ```
 
-Notice the values are base64 encoded. This is done to ensure that the data is stored in a 
+
+>Notice the values are base64 encoded. This is done to ensure that the data is stored in a
 consistent format. All data can be decoded by the conventional ways in their respective languages.
+
 ---
 ## Querying Data
 ### Time-series entries
