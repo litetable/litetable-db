@@ -158,7 +158,6 @@ func (m *Manager) snapshotMerge() error {
 			}
 
 			for familyName, qualifiers := range *columnFamilies {
-
 				// Check if the qualifier already exists in the family
 				if _, exists := mergedData[rowKey][familyName]; !exists {
 					mergedData[rowKey][familyName] = make(litetable.VersionedQualifier)
@@ -179,6 +178,8 @@ func (m *Manager) snapshotMerge() error {
 
 	// its possible the backup hasn't been made yet, just save the data
 	if latestBackup == "" {
+		// Process tombstones before saving the initial backup
+		m.processTombstones(&mergedData)
 		err = m.saveBackup(&mergedData)
 		if err != nil {
 			return fmt.Errorf("failed to save backup: %w", err)
@@ -211,16 +212,50 @@ func (m *Manager) snapshotMerge() error {
 				continue
 			}
 
-			// Check if the qualifier already exists in the family
+			// Check if the family already exists
 			if _, exists := loadedData[rowKey][familyName]; !exists {
 				loadedData[rowKey][familyName] = make(litetable.VersionedQualifier)
 			}
+
 			// Merge the qualifiers into the main data
 			for qualifier, values := range qualifiers {
-				loadedData[rowKey][familyName][qualifier] = values
+				// Instead of directly copying values, merge them properly
+				if existingValues, exists := loadedData[rowKey][familyName][qualifier]; exists {
+					// Create a map to track values by timestamp to avoid duplicates
+					valuesByTimestamp := make(map[time.Time]litetable.TimestampedValue)
+
+					// Add existing values to the map
+					for _, val := range existingValues {
+						valuesByTimestamp[val.Timestamp] = val
+					}
+
+					// Add or override with new values
+					for _, val := range values {
+						valuesByTimestamp[val.Timestamp] = val
+					}
+
+					// Convert back to slice
+					var mergedValues []litetable.TimestampedValue
+					for _, val := range valuesByTimestamp {
+						mergedValues = append(mergedValues, val)
+					}
+
+					// Sort by timestamp (newest first)
+					sort.Slice(mergedValues, func(i, j int) bool {
+						return mergedValues[i].Timestamp.After(mergedValues[j].Timestamp)
+					})
+
+					loadedData[rowKey][familyName][qualifier] = mergedValues
+				} else {
+					// No existing values, just copy the new ones
+					loadedData[rowKey][familyName][qualifier] = values
+				}
 			}
 		}
 	}
+
+	// Process tombstones to remove tombstoned data
+	m.processTombstones(&loadedData)
 
 	// save the backup file
 	err = m.saveBackup(&loadedData)
@@ -240,4 +275,42 @@ func (m *Manager) snapshotMerge() error {
 
 	log.Debug().Str("duration", time.Since(start).String()).Msg("incremental snapshot merge complete")
 	return nil
+}
+
+// processTombstones processes the data and removes tombstoned entries
+func (m *Manager) processTombstones(data *litetable.Data) {
+	now := time.Now()
+
+	for rowKey, columnFamilies := range *data {
+		for familyName, qualifiers := range columnFamilies {
+			// Process each qualifier
+			for qualifierName, values := range qualifiers {
+				if len(values) == 0 {
+					// Remove empty qualifier lists
+					delete(qualifiers, qualifierName)
+					continue
+				}
+
+				// The values are sorted by timestamp (newest first)
+				// If the newest value is a tombstone, we should remove all values for this qualifier
+				// or keep it only if the tombstone hasn't expired yet
+				if len(values) > 0 && values[0].IsTombstone {
+					// If the tombstone is expired, remove the entire qualifier
+					if values[0].ExpiresAt.Before(now) {
+						delete(qualifiers, qualifierName)
+					}
+				}
+			}
+
+			// Clean up empty families
+			if len(qualifiers) == 0 {
+				delete(columnFamilies, familyName)
+			}
+		}
+
+		// Clean up empty rows
+		if len(columnFamilies) == 0 {
+			delete(*data, rowKey)
+		}
+	}
 }
