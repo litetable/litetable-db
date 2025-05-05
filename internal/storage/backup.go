@@ -15,16 +15,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
 )
 
+const (
+	backupFileGlob = "backup-*.db"
+)
+
 // saveBackup creates a new backup file with the provided data. It does not interact with the memory
 // cache.
 func (m *Manager) saveBackup(data *litetable.Data) error {
-	filename := filepath.Join(m.dataDir, fmt.Sprintf("snapshot-%d.db", time.Now().UnixNano()))
+	filename := filepath.Join(m.dataDir, fmt.Sprintf("backup-%d.db", time.Now().UnixNano()))
 
 	dataBytes, err := json.Marshal(data)
 	if err != nil {
@@ -40,7 +45,7 @@ func (m *Manager) saveBackup(data *litetable.Data) error {
 
 // getLatestBackup returns the latest full-snapshot file in the data directory.
 func (m *Manager) getLatestBackup() (string, error) {
-	files, err := filepath.Glob(filepath.Join(m.dataDir, "snapshot-*.db"))
+	files, err := filepath.Glob(filepath.Join(m.dataDir, backupFileGlob))
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +66,8 @@ func (m *Manager) getLatestBackup() (string, error) {
 	return latest, nil
 }
 
-func (m *Manager) loadFromLatestSnapshot() error {
+// loadFromLatestBackup loads the latest backup file into the data cache.
+func (m *Manager) loadFromLatestBackup() error {
 	latest, err := m.getLatestBackup()
 	if err != nil {
 		return fmt.Errorf("failed to get latest snapshot: %w", err)
@@ -92,9 +98,9 @@ func (m *Manager) loadFromLatestSnapshot() error {
 // ones if the limit is exceeded.
 func (m *Manager) maintainSnapshotLimit() {
 	// List all snapshot files
-	files, err := filepath.Glob(filepath.Join(m.dataDir, "snapshot-*.db"))
+	files, err := filepath.Glob(filepath.Join(m.dataDir, backupFileGlob))
 	if err != nil {
-		fmt.Printf("Failed to list snapshot files: %v\n", err)
+		log.Error().Err(err).Msg("Failed to list snapshot files")
 		return
 	}
 
@@ -109,10 +115,10 @@ func (m *Manager) maintainSnapshotLimit() {
 
 	// Delete the oldest files, keeping only the configured limit
 	for i := 0; i < len(files)-m.maxSnapshotLimit; i++ {
-		if err := os.Remove(files[i]); err != nil {
-			fmt.Printf("Failed to remove old snapshot %s: %v\n", files[i], err)
+		if err = os.Remove(files[i]); err != nil {
+			log.Error().Err(err).Msgf("Failed to remove old snapshot %s:\n", files[i])
 		} else {
-			fmt.Printf("Pruned old snapshot: %s\n", files[i])
+			log.Debug().Msgf("Pruned old snapshot: %s\n", files[i])
 		}
 	}
 }

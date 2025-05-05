@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	snapshotFileGlob = "snapshot-incr-*.db"
+	snapshotPrefix   = "ss-incr"
+	snapshotFileGlob = "ss-incr-*.db"
 )
 
 type snapShopData struct {
@@ -31,10 +32,6 @@ func (m *Manager) runIncrementalSnapshot() error {
 		return nil
 	}
 
-	// lock the mutex to prevent any changes to the data while we are creating the snapshot
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	writtenTime := time.Now()
 
 	log.Info().Msg("creating incremental snapshot: " + writtenTime.String())
@@ -45,8 +42,7 @@ func (m *Manager) runIncrementalSnapshot() error {
 	}
 
 	// create a partial snapshot
-	prefix := "snapshot-incr"
-	filename := filepath.Join(m.snapshotDir, fmt.Sprintf("%s-%d.db", prefix, writtenTime.UnixNano()))
+	filename := filepath.Join(m.snapshotDir, fmt.Sprintf("%s-%d.db", snapshotPrefix, writtenTime.UnixNano()))
 
 	// Serialize and save to disk
 	dataBytes, err := json.Marshal(snapshot)
@@ -75,7 +71,12 @@ func (m *Manager) createIncrementalSnapshotData(time time.Time) *snapShopData {
 		SnapshotData:      make(map[string]*map[string]litetable.VersionedQualifier),
 	}
 
+	// lock the mutex around working with the cache
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	data := m.data
+
 	for k, cf := range m.changedRows {
 		// check to see if the key exists in memory if it doesn't just continue on
 		row, ok := data[k]
@@ -217,9 +218,6 @@ func (m *Manager) snapshotMerge() error {
 			}
 		}
 	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	// save the backup file
 	err = m.saveBackup(&mergedData)

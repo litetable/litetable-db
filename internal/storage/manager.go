@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	dataDiskName       = ".table"
+	backupDirName      = ".table_backup"
 	snapshotDir        = ".snapshots"
 	dataFamilyLockFile = "families.config.json"
 )
@@ -75,8 +75,8 @@ func New(cfg *Config) (*Manager, error) {
 		return nil, err
 	}
 
-	dirName := filepath.Join(cfg.RootDir, dataDiskName)
-	if err := os.MkdirAll(dirName, 0755); err != nil {
+	backupDir := filepath.Join(cfg.RootDir, backupDirName)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
@@ -94,7 +94,7 @@ func New(cfg *Config) (*Manager, error) {
 
 	m := &Manager{
 		rootDir:          cfg.RootDir,
-		dataDir:          dirName,
+		dataDir:          backupDir,
 		data:             make(litetable.Data),
 		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
 		allowedFamilies:  make([]string, 0),
@@ -117,7 +117,8 @@ func New(cfg *Config) (*Manager, error) {
 // Start initializes disk storage for the manager.
 func (m *Manager) Start() error {
 
-	if err := m.loadFromLatestSnapshot(); err != nil {
+	// load the latest backup to initialize the cached data
+	if err := m.loadFromLatestBackup(); err != nil {
 		return err
 	}
 
