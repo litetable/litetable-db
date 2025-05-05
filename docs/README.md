@@ -3,28 +3,34 @@
 
 <img src="./images/litetable-logo-min.png" alt="LiteTable Logo" width="350px">
 
-LiteTable is a light-weight (pun intended), high-performance key-value database designed for fast 
-iteration and massive scale. Written in pure Go, it provides a simple, flexible and efficient 
-storage solution inspired by column-oriented database systems like Google BigTable and Apache Cassandra.
+LiteTable is a light-weight (pun intended), high-performance NoSQL database designed for fast 
+iteration and developer convenience. It provides a simple, flexible and efficient 
+storage solution inspired by column-oriented database systems such as: 
+- Google BigTable
+- Apache Cassandra
+
+and other systems such as Valkey and Prometheus, to name a few.
 
 ## Key Features
 
-- **Flexible Data Model**: Store data organized by row key, column family, and qualifiers
-- **Versioned Values**: Support for time-versioned data entries
-- **Durability**: Persistent storage with WAL for crash recovery
-- **Performance**: In-memory operations with configurable flush thresholds
-- **Security**: Optional TLS encryption for client-server communication
+- **Flexible Data Model**: Store data organized by row keys, column families, and column qualifiers
+- **Time-Series Data**: Efficiently store and query time-series data with built-in support for
+  versioning and expiration.
+- **Garbage Collection**: Flexible delete options allow for automatic expiration and cleanup.
+- **CDC Support**: Change Data Capture support for real-time data streaming and 
+  integration with other systems.
+- **Configurable Backup** Easily configure backup and restore options for data protection.
 ---
 ## Quick Start
 
 LiteTable can be run locally or deployed via Docker:
 
 ### LiteTable CLI
-To get started with LiteTable DB, it is recommended to use the LiteTable CLI. 
+To get started with LiteTable DB, just install the CLI. 
 
 1. Install the CLI:
    ```bash
-   go get github.com/litetable/litetable-cli
+   curl -fsSL https://raw.githubusercontent.com/litetable/litetable-cli/main/install.sh | bash
    ```
 2. Initialize a new LiteTable database:
    ```bash
@@ -44,7 +50,7 @@ To get started with LiteTable DB, it is recommended to use the LiteTable CLI.
 With an initialized server, you can start writing data to it. The first write is to always 
 create a supported column family, which is accomplished by a `create` command.
 ```bash
-litetable create --family <my_family>
+  litetable create --family <my_family>
 ```
 
 A valid column family is required for every read and write command.
@@ -57,13 +63,14 @@ A valid column family is required for every read and write command.
 
 2. Create a new record for that column family
    ```bash
-      litetable write -k champ:1 -f wrestlers -q firstName -v John -q lastName -v Cena -q  championships -v 15
-      ```
+   litetable write -k champ:1 -f wrestlers -q firstName -v John -q lastName -v Cena -q  
+   championships -v 15
+   ```
 3. Append more data to the row key
    ```bash
-      litetable write -k champ:1 -f champions -q championships -v 16 &&
-      litetable write -k champ:1 -f champions -q championships -v 17
-      ```
+   litetable write -k champ:1 -f wrestlers -q championships -v 16 &&
+   litetable write -k champ:1 -f wrestlers -q championships -v 17
+   ```
 4. Read the data back
    ```bash
    litetable read -k champ:1 -f wrestlers
@@ -83,9 +90,9 @@ A valid column family is required for every read and write command.
 Using the `write` command from above returns the following data.
 ```json
 {
-   "key": "user:012345",
+   "key": "champ:1",
    "cols": {
-      "champions": {
+      "wrestlers": {
          "championships": [
             {
                "value": "MTU=",
@@ -117,7 +124,7 @@ consistent format. All data can be decoded by the conventional ways in their res
 LiteTable queries can be configured to return all or the `latestNValue` of a column family. For 
 example:
 ```bash
-litetable read -k user:12345 -f champions -l 3
+litetable read -f wrestlers -k champ:1 -l 3
 ```
 
 This will return the latest 3 entries for every column qualifier in the `champions` family.
@@ -140,7 +147,7 @@ return any rows < N.
 ---
 To get the latest 3 entries for a specific column qualifier, you can use the `-q` flag:
 ```
-litetable read -k champ:1 -f wrestlers -q championships -l 3
+litetable read -f wrestlers -k champ:1 -q championships -l 3
 ```
 
 ```
@@ -152,10 +159,41 @@ family: wrestlers
     value 3: 15 (timestamp: 2025-04-27T00:08:38.15789-04:00)
 
 ```
-## Wide Column, Time-Series Data Model
-A wide column store allows every written record on a row prefix to have N number of columns 
-where no two rows on the same rowKey are required to have the same columns.
 
+You can append as many qualifiers as you need:
+```
+litetable read -f wrestlers -k champ:1 -q championships -q name -l 1
+```
+---
+## Data Storage and Architecture
+### In-Memory with Persistent Backup
+LiteTable operates primarily as an in-memory database for high performance, with configurable persistence through several mechanisms:
+
+- Incremental Snapshots: Frequent small backups of changed data
+- Full Snapshots: Complete database backups at configurable intervals
+- Snapshot Merging: Consolidation of incremental snapshots into the main backup
+
+### Tombstone-Based Deletion
+LiteTable uses a tombstone pattern for efficient deletions:
+
+- Data isn't immediately removed from memory but marked with a tombstone
+- Tombstones have configurable expiration times (TTL)
+- A background reaper process purges expired tombstones at regular intervals
+- During snapshot merges, tombstoned data is properly removed from persistent storage
+
+### Version Control and Time-Series
+Every write to LiteTable is versioned with a timestamp:
+
+- Multiple versions of the same data are stored under one qualifier
+- Data can be queried by time or limited to most recent versions
+- Historical data access is built-in without complex query syntax
+
+### Concurrency Model
+- Read operations are optimized for high throughput
+- Write operations maintain data integrity through timestamps
+- Built for read-heavy workloads
+
+---
 ### Proudly written in Go.
 LiteTable DB is proudly written in Go and is designed with the modern developer in mind. 
 Wide-column NoSQL is the same technology that powers applications like Google Maps, Google 
