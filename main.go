@@ -22,6 +22,10 @@ const (
 	defaultDir        = ".litetable"
 	defaultServerCert = "server.crt"
 	defaultServerKey  = "server.key"
+
+	// googleSeverityKey is the key used for severity in Google Cloud Logging to conform to their
+	// Stackdriver logging format
+	googleSeverityKey = "severity"
 )
 
 func main() {
@@ -140,14 +144,18 @@ func initialize() (*app.App, error) {
 }
 
 func initLogging() {
-	// if we're in local dev, set the logging config we desire
-	output := zerolog.ConsoleWriter{
-		TimeFormat: time.RFC3339,
-		NoColor:    true,
+	// if deployed to google, change the severity key
+	if os.Getenv("CLOUD_ENVIRONMENT") == "google" {
+		zerolog.LevelFieldName = googleSeverityKey
 	}
 
 	// for sanity's sake - make the dev logs easier to read and parse
 	if os.Getenv("DEBUG") == "true" {
+		output := zerolog.ConsoleWriter{
+			Out:        os.Stdout,
+			TimeFormat: time.RFC3339,
+			NoColor:    false,
+		}
 		output.FormatLevel = func(i interface{}) string {
 			level, ok := i.(string)
 			if !ok {
@@ -173,11 +181,10 @@ func initLogging() {
 		output.Out = os.Stderr
 		output.NoColor = false
 		zerolog.SetGlobalLevel(zerolog.DebugLevel) // always start with debug for base logging
+		// Set the global logger output
+		log.Logger = zerolog.New(output).With().Timestamp().Logger()
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel) // set to info for production
 	}
-
-	// Set the global logger output
-	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
 }
