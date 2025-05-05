@@ -24,10 +24,13 @@ func (m *Manager) runIncrementalSnapshot() error {
 		return nil
 	}
 
+	// lock the mutex to prevent any changes to the data while we are creating the snapshot
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	// lock the mutex to prevent any changes to the data while we are creating the snapshot
-	snapshot := m.createSnapshotData()
+
+	writtenTime := time.Now()
+
+	snapshot := m.createIncrementalSnapshotData(writtenTime)
 	if snapshot == nil {
 		fmt.Println("no snapshot data to save")
 		return nil
@@ -35,7 +38,7 @@ func (m *Manager) runIncrementalSnapshot() error {
 
 	// create a partial snapshot
 	prefix := "snapshot-incr"
-	filename := filepath.Join(m.snapshotDir, fmt.Sprintf("%s-%d.db", prefix, time.Now().UnixNano()))
+	filename := filepath.Join(m.snapshotDir, fmt.Sprintf("%s-%d.db", prefix, writtenTime.UnixNano()))
 
 	// Serialize and save to disk
 	dataBytes, err := json.Marshal(snapshot)
@@ -48,26 +51,25 @@ func (m *Manager) runIncrementalSnapshot() error {
 	}
 
 	// back up the snapshot information and reset the changed rows
-	m.lastSnapshotTime = time.Now()
-	m.latestSnapshotFile = filename
+	m.lastPartialSnapshotTime = writtenTime
+	m.latestPartialSnapshotFile = filename
 	m.changedRows = make(map[string]map[string]struct{})
 
 	return nil
 }
 
-// createSnapshotData creates a snapshot of the current data in memory
-func (m *Manager) createSnapshotData() *snapShopData {
-
-	snapshot := &snapShopData{
+// createIncrementalSnapshotData creates a snapshot of the current data in memory
+func (m *Manager) createIncrementalSnapshotData(time time.Time) *snapShopData {
+	snap := &snapShopData{
 		Version:           1,
-		SnapshotTimestamp: time.Now(),
+		SnapshotTimestamp: time,
 		IsPartial:         true,
 		SnapshotData:      make(map[string]*litetable.VersionedQualifier),
 	}
 
 	data := m.data
-	for k, columnFamilies := range m.changedRows {
-		// check to see if the key exists in the data, if it doesn't just continue on
+	for k, cf := range m.changedRows {
+		// check to see if the key exists in memory if it doesn't just continue on
 		row, ok := data[k]
 		if !ok {
 			fmt.Printf("row %s does not exist in data\n", k)
@@ -75,10 +77,10 @@ func (m *Manager) createSnapshotData() *snapShopData {
 		}
 
 		vq := make(litetable.VersionedQualifier)
-		snapshot.SnapshotData[k] = &vq
+		snap.SnapshotData[k] = &vq
 
-		// check to see if the family exists in on the row, if it doesn't just continue on
-		for fam := range columnFamilies {
+		// check to see if the family exists in on the row if it doesn't just continue on
+		for fam := range cf {
 			family, exists := row[fam]
 			if !exists {
 				fmt.Printf("family %s does not exist in row %s\n", fam, k)
@@ -92,5 +94,14 @@ func (m *Manager) createSnapshotData() *snapShopData {
 		}
 	}
 
-	return snapshot
+	return snap
+}
+
+// snapshotMerge takes all the snapshot data in the files and merges them into the main data
+// directory in chronological order (the oldest file to the newest).
+//
+// Data backup is eventually consistent and works with the reaper GC to keep data in sync.
+func (m *Manager) snapshotMerge() error {
+
+	return nil
 }

@@ -37,15 +37,16 @@ func (m *Manager) saveSnapshot() error {
 	return nil
 }
 
-func (m *Manager) loadFromLatestSnapshot() error {
+// getLatestBackup returns the latest full-snapshot file in the data directory.
+func (m *Manager) getLatestBackup() (string, error) {
 	files, err := filepath.Glob(filepath.Join(m.dataDir, "snapshot-*.db"))
 	if err != nil {
-		return fmt.Errorf("failed to list snapshot files: %w", err)
+		return "", err
 	}
 
 	if len(files) == 0 {
 		// No snapshots yet, nothing to load
-		return nil
+		return "", nil
 	}
 
 	// Find the newest snapshot file
@@ -56,7 +57,23 @@ func (m *Manager) loadFromLatestSnapshot() error {
 		}
 	}
 
+	return latest, nil
+}
+
+func (m *Manager) loadFromLatestSnapshot() error {
+	latest, err := m.getLatestBackup()
+	if err != nil {
+		return fmt.Errorf("failed to get latest snapshot: %w", err)
+	}
+
+	if latest == "" {
+		// No snapshot files found; initialize with empty data
+		m.data = make(litetable.Data)
+		return nil
+	}
+
 	m.latestSnapshotFile = latest
+
 	dataBytes, err := os.ReadFile(latest)
 	if err != nil {
 		return fmt.Errorf("failed to read snapshot %s: %w", latest, err)

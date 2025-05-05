@@ -35,11 +35,14 @@ type Manager struct {
 	allowedFamilies []string // Maps family names to allowed columns
 	familiesFile    string   // Path to store allowed family configuration
 
-	// create a house for the snapshot process
-	changedRows        map[string]map[string]struct{} // initialized when first row is marked
 	latestSnapshotFile string
-	lastSnapshotTime   time.Time
-	snapshotDir        string
+
+	// create a house for the snapshot process
+	changedRows               map[string]map[string]struct{} // initialized when first row is marked
+	lastSnapshotTime          time.Time
+	lastPartialSnapshotTime   time.Time
+	latestPartialSnapshotFile string
+	snapshotDir               string
 
 	procCtx   context.Context
 	ctxCancel context.CancelFunc
