@@ -19,7 +19,6 @@ const (
 
 var (
 	standardSnapshotPruneTime = 1 // TODO: make this not run every minute
-	defaultSnapshotLimit      = 10
 )
 
 // Manager handles persistent storage operations to a disk
@@ -29,7 +28,7 @@ type Manager struct {
 	data    litetable.Data
 	mutex   sync.RWMutex
 
-	snapshotDuration time.Duration
+	backupTimer      time.Duration
 	maxSnapshotLimit int
 
 	allowedFamilies []string // Maps family names to allowed columns
@@ -37,6 +36,7 @@ type Manager struct {
 
 	// create a house for the snapshot process
 	changedRows               map[string]map[string]struct{} // initialized when first row is marked
+	snapshotTimer             time.Duration
 	lastSnapshotTime          time.Time
 	lastPartialSnapshotTime   time.Time
 	latestPartialSnapshotFile string
@@ -49,6 +49,7 @@ type Manager struct {
 type Config struct {
 	RootDir          string
 	FlushThreshold   int
+	SnapshotTimer    int
 	MaxSnapshotLimit int
 }
 
@@ -59,6 +60,11 @@ func (c *Config) validate() error {
 	}
 	if c.FlushThreshold <= 0 {
 		errGrp = append(errGrp, fmt.Errorf("flush threshold must be greater than 0"))
+	}
+
+	// if the configured snapshot is less than 1, throw an error
+	if c.SnapshotTimer < 1 {
+		errGrp = append(errGrp, fmt.Errorf("snapshot timer must be greater than 0"))
 	}
 
 	// if the configured snapshot is larger than 50, throw an error
@@ -85,18 +91,14 @@ func New(cfg *Config) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create snapshot directory: %w", err)
 	}
 
-	// if we got nothing, set the default
-	if cfg.MaxSnapshotLimit == 0 {
-		cfg.MaxSnapshotLimit = defaultSnapshotLimit
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	m := &Manager{
 		rootDir:          cfg.RootDir,
 		dataDir:          backupDir,
 		data:             make(litetable.Data),
-		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
+		snapshotTimer:    time.Duration(cfg.SnapshotTimer) * time.Second,
+		backupTimer:      time.Duration(cfg.FlushThreshold) * time.Second,
 		allowedFamilies:  make([]string, 0),
 		familiesFile:     filepath.Join(cfg.RootDir, dataFamilyLockFile),
 		maxSnapshotLimit: cfg.MaxSnapshotLimit,
@@ -124,9 +126,9 @@ func (m *Manager) Start() error {
 
 	// Start the background process for snapshots
 	go func() {
-		snapshotTicker := time.NewTicker(m.snapshotDuration)
+		snapshotTicker := time.NewTicker(m.snapshotTimer)
 		// whatever the snapshot is, add 50%
-		snapshotMerge := time.NewTicker(m.snapshotDuration + (m.snapshotDuration / 2))
+		snapshotMerge := time.NewTicker(m.backupTimer + (m.backupTimer / 2))
 		pruneTicker := time.NewTicker(time.Duration(standardSnapshotPruneTime) * time.Minute)
 
 		defer func() {

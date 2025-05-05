@@ -20,6 +20,7 @@ type Config struct {
 
 	GarbageCollectionTimer int
 	BackupTimer            int
+	SnapshotTimer          int
 	MaxSnapshotLimit       int
 	Debug                  bool
 	CloudEnvironment       string
@@ -80,6 +81,11 @@ func NewConfig() (*Config, error) {
 			config.Debug = value == "true"
 		case "cloud_environment":
 			config.CloudEnvironment = value
+		case "snapshot_timer":
+			config.SnapshotTimer, err = strconv.Atoi(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid snapshot timer value: %w", err)
+			}
 		case "max_snapshot_limit":
 			config.MaxSnapshotLimit, err = strconv.Atoi(value)
 			if err != nil {

@@ -70,8 +70,9 @@ func initialize() (*app.App, error) {
 	// create a disk storage manager
 	diskStorage, err := storage.New(&storage.Config{
 		RootDir:          certDir,
-		FlushThreshold:   cfg.BackupTimer,      // create a snapshot every 5 minutes
-		MaxSnapshotLimit: cfg.MaxSnapshotLimit, // keep 3 snapshots
+		FlushThreshold:   cfg.BackupTimer,
+		SnapshotTimer:    cfg.SnapshotTimer,
+		MaxSnapshotLimit: cfg.MaxSnapshotLimit,
 	})
 	if err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func initialize() (*app.App, error) {
 	// create a new Reaper (aka Garbage Collector)
 	reaperGC, err := reaper.New(&reaper.Config{
 		Storage:    diskStorage,
-		GCInterval: cfg.GarbageCollectionTimer, // run every 60 seconds
+		GCInterval: cfg.GarbageCollectionTimer,
 		Path:       certDir,
 	})
 	if err != nil {

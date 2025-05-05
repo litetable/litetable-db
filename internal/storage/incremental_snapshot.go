@@ -26,6 +26,7 @@ type snapShopData struct {
 // runIncrementalSnapshot takes every rowKey and family from the changeRows map
 // and retrieves the contents of the row in memory and saves it to the snapshot file.
 func (m *Manager) runIncrementalSnapshot() error {
+	start := time.Now()
 	// skip if nothing to do
 	if len(m.changedRows) == 0 {
 		log.Debug().Msg("no changes to snapshot")
@@ -59,6 +60,8 @@ func (m *Manager) runIncrementalSnapshot() error {
 	m.latestPartialSnapshotFile = filename
 	m.changedRows = make(map[string]map[string]struct{})
 
+	log.Info().Str("duration", time.Since(start).String()).Msgf("Incremental snapshot saved to %s",
+		filename)
 	return nil
 }
 
@@ -220,7 +223,7 @@ func (m *Manager) snapshotMerge() error {
 	}
 
 	// save the backup file
-	err = m.saveBackup(&mergedData)
+	err = m.saveBackup(&loadedData)
 	if err != nil {
 		return fmt.Errorf("failed to save backup: %w", err)
 	}
