@@ -83,6 +83,9 @@ func (m *Manager) delete(query []byte) error {
 		modifiedFamilies[parsed.family] = true
 	}
 
+	// report a changed row
+	m.storage.MarkRowChanged(parsed.family, parsed.rowKey)
+
 	// if we've made it this far, send the deleted data for garbage collection
 	m.garbageCollector.Reap(&reaper.ReapParams{
 		RowKey:     parsed.rowKey,
@@ -189,7 +192,7 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 	if parsed.ttl > 0 {
 		parsed.expiresAt = parsed.timestamp.Add(parsed.ttl)
 	}
-	
+
 	// Validate required fields
 	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")

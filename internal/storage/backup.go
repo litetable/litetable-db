@@ -1,14 +1,12 @@
 // Package storage provides the interface for data storage management.
 //
-// Saving to disk is fairly straightforwrad, but snapshotting is a process that requires
-// some thinking.
+// Saving to disk is fairly straight-forward, but snapshotting is a process that requires
+// some consideration for how data is merged.
 //
-// My longterm goal with snapshotting is to support incremental snapshots for appends and
-// full snapshots every 15 or so.
+// The long-term goal with snapshotting is to support incremental snapshots with configuration for
+// external replication; which would work similar to a prometheus server.
 //
-// Garbage collection would continue to be handle by the reaper.
-//
-// The current approach will be to save the memory pointers of the data saved
+// Garbage collection would continue to be handled by the reaper, who would also report changes.
 package storage
 
 import (
@@ -29,6 +27,7 @@ const (
 // saveBackup creates a new backup file with the provided data. It does not interact with the memory
 // cache.
 func (m *Manager) saveBackup(data *litetable.Data) error {
+	start := time.Now()
 	filename := filepath.Join(m.dataDir, fmt.Sprintf("backup-%d.db", time.Now().UnixNano()))
 
 	dataBytes, err := json.Marshal(data)
@@ -40,6 +39,7 @@ func (m *Manager) saveBackup(data *litetable.Data) error {
 		return fmt.Errorf("failed to write snapshot file: %w", err)
 	}
 
+	log.Debug().Str("duration", time.Since(start).String()).Msgf("Backup saved to %s", filename)
 	return nil
 }
 
@@ -68,6 +68,7 @@ func (m *Manager) getLatestBackup() (string, error) {
 
 // loadFromLatestBackup loads the latest backup file into the data cache.
 func (m *Manager) loadFromLatestBackup() error {
+	start := time.Now()
 	latest, err := m.getLatestBackup()
 	if err != nil {
 		return fmt.Errorf("failed to get latest snapshot: %w", err)
@@ -91,6 +92,7 @@ func (m *Manager) loadFromLatestBackup() error {
 
 	m.data = loadedData
 
+	log.Debug().Str("duration", time.Since(start).String()).Msg("Data loaded from backup")
 	return nil
 }
 

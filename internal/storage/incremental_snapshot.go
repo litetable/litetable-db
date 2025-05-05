@@ -113,7 +113,7 @@ func (m *Manager) createIncrementalSnapshotData(time time.Time) *snapShopData {
 //
 // Data backup is eventually consistent and works with the reaper GC to keep data in sync.
 func (m *Manager) snapshotMerge() error {
-
+	start := time.Now()
 	// Find all incremental snapshot files
 	snapshotFiles, err := filepath.Glob(filepath.Join(m.snapshotDir, snapshotFileGlob))
 	if err != nil {
@@ -228,13 +228,13 @@ func (m *Manager) snapshotMerge() error {
 	// once we know the backup is saved, purge the snapshot files
 	// Delete the oldest files, keeping only the configured limit
 	for _, file := range snapshotFiles {
-		if err := os.Remove(file); err != nil {
-			fmt.Printf("Failed to remove old snapshot %s: %v\n", file, err)
+		if err = os.Remove(file); err != nil {
+			log.Error().Err(err).Msgf("Failed to remove old snapshot: %s", file)
 		} else {
-			fmt.Printf("Pruned old snapshot: %s\n", file)
+			log.Debug().Msgf("Pruned old snapshot: %s", file)
 		}
 	}
 
-	log.Debug().Msg("incremental snapshot merge complete")
+	log.Debug().Str("duration", time.Since(start).String()).Msg("incremental snapshot merge complete")
 	return nil
 }

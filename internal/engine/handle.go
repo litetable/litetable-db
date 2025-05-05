@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"net"
 )
 
@@ -12,7 +13,7 @@ func (e *Engine) Handle(conn Conn) {
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			fmt.Printf("Error closing connection: %v\n", err)
+			log.Error().Err(err).Msg("Error closing connection")
 		}
 	}()
 
@@ -21,7 +22,7 @@ func (e *Engine) Handle(conn Conn) {
 		// Write the error to the connection
 		_, writeErr := conn.Write([]byte(fmt.Sprintf("Error: %v", err)))
 		if writeErr != nil {
-			fmt.Printf("Error writing response: %v\n", writeErr)
+			log.Error().Err(writeErr).Msg("Error writing response")
 		}
 		return
 	}
@@ -29,7 +30,7 @@ func (e *Engine) Handle(conn Conn) {
 	var response []byte
 	res, err := e.operations.Run(buf)
 	if err != nil {
-		fmt.Printf("Error handling request: %v\n", err)
+		log.Error().Err(err).Msg("Error handling request")
 		response = []byte(fmt.Sprintf("Error: %v", err))
 	} else {
 		response = res
@@ -38,7 +39,7 @@ func (e *Engine) Handle(conn Conn) {
 	// Write the response to the connection
 	_, err = conn.Write(response)
 	if err != nil {
-		fmt.Printf("Error writing response: %v\n", err)
+		log.Error().Err(err).Msg("Error writing response")
 		return
 	}
 }

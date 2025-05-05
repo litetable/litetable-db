@@ -11,8 +11,11 @@ import (
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/storage"
 	"github.com/litetable/litetable-db/internal/storage/wal"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -22,6 +25,7 @@ const (
 )
 
 func main() {
+	initLogging()
 	application, err := initialize()
 	if err != nil {
 		panic(err)
@@ -66,7 +70,7 @@ func initialize() (*app.App, error) {
 	// create a new Reaper (aka Garbage Collector)
 	reaperGC, err := reaper.New(&reaper.Config{
 		Storage:    diskStorage,
-		GCInterval: 10,
+		GCInterval: 60, // run every 60 seconds
 		Path:       certDir,
 	})
 	if err != nil {
@@ -133,4 +137,47 @@ func initialize() (*app.App, error) {
 	}
 
 	return application, nil
+}
+
+func initLogging() {
+	// if we're in local dev, set the logging config we desire
+	output := zerolog.ConsoleWriter{
+		TimeFormat: time.RFC3339,
+		NoColor:    true,
+	}
+
+	// for sanity's sake - make the dev logs easier to read and parse
+	if os.Getenv("DEBUG") == "true" {
+		output.FormatLevel = func(i interface{}) string {
+			level, ok := i.(string)
+			if !ok {
+				return "???"
+			}
+
+			switch level {
+			case "debug":
+				return "\x1b[35m" + "DEBUG" + "\x1b[0m" // Purple for debug
+			case "info":
+				return "\x1b[32m" + "INFO " + "\x1b[0m" // Green for info
+			case "warn":
+				return "\x1b[33m" + "WARN " + "\x1b[0m" // Yellow for warn
+			case "error":
+				return "\x1b[31m" + "ERROR" + "\x1b[0m" // Red for error
+			case "fatal", "panic":
+				return "\x1b[41m" + level + "\x1b[0m" // White on red background
+			default:
+				return level
+			}
+		}
+
+		output.Out = os.Stderr
+		output.NoColor = false
+		zerolog.SetGlobalLevel(zerolog.DebugLevel) // always start with debug for base logging
+	} else {
+		zerolog.SetGlobalLevel(zerolog.InfoLevel) // set to info for production
+	}
+
+	// Set the global logger output
+	log.Logger = zerolog.New(output).With().Timestamp().Logger()
+
 }

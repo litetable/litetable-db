@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/rs/zerolog/log"
 	"os"
 	"time"
 )
@@ -24,33 +25,32 @@ func (r *Reaper) Reap(p *ReapParams) {
 }
 
 // write will append the GCParams to the GC log file.
-func (r *Reaper) write(p *ReapParams) {
+func (r *Reaper) write(p *ReapParams) error {
 	// open the file
 	file, err := os.OpenFile(r.filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0640)
 	if err != nil {
-		fmt.Printf("failed to open GC log file: %v", err)
-		return
+		return err
 	}
-
 	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			fmt.Printf("failed to close GC log file: %v\n", err)
+		closeErr := file.Close()
+		if closeErr != nil {
+			log.Error().Err(closeErr).Str("file", r.filePath).Msg("failed to close file")
 		}
 	}(file)
 
 	data, err := json.Marshal(p)
 	if err != nil {
-		fmt.Printf("failed to marshal GCParams: %v\n", err)
-		return
+		log.Error().Err(err).Msg("failed to marshal GCParams")
+		return err
 	}
 
 	_, err = file.WriteString(string(data) + "\n")
 	if err != nil {
-		fmt.Printf("failed to write GCParams to log file: %v\n", err)
+		log.Error().Err(err).Msg("failed to write GCParams to log file")
+		return err
 	}
 
-	fmt.Println("Wrote GCParams to log file:", string(data))
+	return nil
 }
 
 // garbageCollector runs the garbage collection over tombstones.
@@ -58,10 +58,13 @@ func (r *Reaper) garbageCollector() {
 	// Open the file
 	file, err := os.Open(r.filePath)
 	if err != nil {
-		fmt.Printf("Error opening GC log file: %v\n", err)
+		log.Error().Err(err).Msg("Error opening GC log file")
 		return
 	}
 	defer file.Close()
+
+	// Current time to check expiration
+	now := time.Now()
 
 	// Read the file line by line
 	var entries []ReapParams
@@ -77,20 +80,17 @@ func (r *Reaper) garbageCollector() {
 		}
 
 		var params ReapParams
-		if err := json.Unmarshal([]byte(line), &params); err != nil {
-			fmt.Printf("Error unmarshaling GC log entry: %v\n", err)
+		if err = json.Unmarshal([]byte(line), &params); err != nil {
+			log.Error().Err(err).Msg("Error unmarshalling GC log entry")
 			continue
 		}
 		entries = append(entries, params)
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Printf("Error reading GC log file: %v\n", err)
+	if err = scanner.Err(); err != nil {
+		log.Error().Err(err).Msg("Error reading GC log file")
 		return
 	}
-
-	// Current time to check expiration
-	now := time.Now()
 
 	// Process each entry
 	for _, params := range entries {
@@ -101,6 +101,9 @@ func (r *Reaper) garbageCollector() {
 			// Process the tombstone for this entry
 			if deleted := r.didDeleteTombstone(&params); deleted {
 				removed++
+
+				// if deleted, we need to report this change to the snapshot server
+				r.storage.MarkRowChanged(params.Family, params.RowKey)
 			} else {
 				// the entry is still valid and should remain in the file
 				activeEntries = append(activeEntries, params)
@@ -117,10 +120,16 @@ func (r *Reaper) garbageCollector() {
 
 	// Rewrite the file with only active entries
 	if err = r.rewriteGCLog(activeEntries); err != nil {
-		fmt.Printf("Error rewriting GC log file: %v\n", err)
+		log.Error().Err(err).Msg("Error rewriting GC log file")
 	}
 
-	fmt.Printf("Garbage collection complete: processed %d entries, removed %d\n", processed, removed)
+	log.
+		Debug().
+		Str("duration", time.Since(now).String()).
+		Msgf("Garbage collection complete: processed %d entries, "+
+			"removed %d",
+			processed,
+			removed)
 }
 
 func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
@@ -130,14 +139,14 @@ func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
 	// Check if the row exists
 	row, exists := (*data)[params.RowKey]
 	if !exists {
-		fmt.Printf("Row %s does not exist\n", params.RowKey)
+		log.Debug().Msgf("Row %s does not exist", params.RowKey)
 		return true
 	}
 
 	// Check if the family exists
 	family, exists := row[params.Family]
 	if !exists {
-		fmt.Printf("Family %s does not exist in row %s\n", params.Family, params.RowKey)
+		log.Debug().Msgf("Family %s does not exist in row %s", params.Family, params.RowKey)
 		return true
 	}
 
@@ -156,7 +165,8 @@ func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
 		for _, qualifier := range params.Qualifiers {
 			values, exists := family[qualifier]
 			if !exists {
-				fmt.Printf("Qualifier %s does not exist in family %s\n", qualifier, params.Family)
+				log.Debug().Msgf("Qualifier %s does not exist in family %s", qualifier,
+					params.Family)
 				continue
 			}
 

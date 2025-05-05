@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -18,6 +19,7 @@ type storage interface {
 	GetData() *litetable.Data
 	RWLock() // The Reaper needs control to lock and unlock the data source
 	RWUnlock()
+	MarkRowChanged(family, rowKey string)
 }
 
 type Reaper struct {
@@ -88,7 +90,10 @@ func (r *Reaper) Start() error {
 			case <-r.procCtx.Done():
 				return
 			case p := <-r.collector:
-				r.write(&p)
+				err := r.write(&p)
+				if err != nil {
+					log.Error().Err(err).Msg("failed to write GCParams to log file")
+				}
 			case <-ticker.C:
 				// Run the garbage collector
 				r.garbageCollector()

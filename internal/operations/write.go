@@ -6,6 +6,7 @@ import (
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/reaper"
+	"github.com/rs/zerolog/log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 		// we need to do a double != nil checks because we don't want to send for garbage
 		// collection before the data is saved.
 		if parsed.expiresAt != nil {
-			fmt.Println("calling reaper on write...")
+			log.Debug().Msg("calling reaper on write operation")
 			m.garbageCollector.Reap(&reaper.ReapParams{
 				RowKey:     parsed.rowKey,
 				Family:     parsed.family,

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/engine"
+	"github.com/rs/zerolog/log"
 	"net"
 	"sync"
+	"time"
 )
 
 const (
@@ -110,14 +112,15 @@ func (s *Server) Start() error {
 					<-s.connSemaphore // Release the connection slot
 					s.activeConns.Done()
 				}()
-
-				fmt.Printf("Handling connection from: %s\n", remoteAddr)
+				start := time.Now()
+				log.Debug().Str("addr", remoteAddr).Msgf("incoming connection: %s", remoteAddr)
 				s.handler.Handle(conn)
+				log.Debug().Str("addr", remoteAddr).Str("duration", time.Since(start).String()).Msgf("connection closed: %s", remoteAddr)
 			}()
 		default:
 			// Max connections reached, reject the connection
 			_ = conn.Close()
-			fmt.Printf("Rejected connection from %s: max connections reached\n", remoteAddr)
+			log.Warn().Msgf("Rejected connection from %s: max connections reached", remoteAddr)
 		}
 	}
 }
