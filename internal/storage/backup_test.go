@@ -13,11 +13,7 @@ import (
 
 func TestMaintainSnapshotLimit(t *testing.T) {
 	// Create a temporary directory for test files
-	tempDir, err := os.MkdirTemp("", "snapshot-test-*")
-	require.NoError(t, err, "Failed to create temp directory")
-	defer func(path string) {
-		_ = os.RemoveAll(path)
-	}(tempDir)
+	tempDir := t.TempDir()
 
 	// Create a test manager with a limit of 3 snapshots
 	manager := &Manager{
@@ -39,12 +35,12 @@ func TestMaintainSnapshotLimit(t *testing.T) {
 
 	// Create the snapshot files
 	for _, ts := range timestamps {
-		filename := filepath.Join(tempDir, fmt.Sprintf("snapshot-%d.db", ts))
+		filename := filepath.Join(tempDir, fmt.Sprintf("backup-%d.db", ts))
 		require.NoError(t, os.WriteFile(filename, []byte{}, 0644))
 	}
 
 	// Get initial files
-	initialFiles, err := filepath.Glob(filepath.Join(tempDir, "snapshot-*.db"))
+	initialFiles, err := filepath.Glob(filepath.Join(tempDir, backupFileGlob))
 	require.NoError(t, err)
 	assert.Len(t, initialFiles, 5, "Should have 5 snapshot files initially")
 
@@ -52,7 +48,7 @@ func TestMaintainSnapshotLimit(t *testing.T) {
 	manager.maintainSnapshotLimit()
 
 	// Check remaining files
-	remainingFiles, err := filepath.Glob(filepath.Join(tempDir, "snapshot-*.db"))
+	remainingFiles, err := filepath.Glob(filepath.Join(tempDir, backupFileGlob))
 	require.NoError(t, err)
 	assert.Len(t, remainingFiles, 3, "Should have pruned to 3 snapshot files")
 
@@ -80,7 +76,7 @@ func TestMaintainSnapshotLimit(t *testing.T) {
 func extractTimestamp(filename string) int64 {
 	// Extract the numeric part between "snapshot-" and ".db"
 	var timestamp int64
-	_, err := fmt.Sscanf(filename, "snapshot-%d.db", &timestamp)
+	_, err := fmt.Sscanf(filename, "backup-%d.db", &timestamp)
 	if err != nil {
 		return 0
 	}

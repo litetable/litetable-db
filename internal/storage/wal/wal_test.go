@@ -5,7 +5,6 @@ import (
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/stretchr/testify/require"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -23,8 +22,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("Valid config", func(t *testing.T) {
 		t.Parallel()
-		dir, _ := os.Getwd()
-		testDir := filepath.Join(dir, defaultWalDirectory)
+		testDir := t.TempDir()
 		cfg := &Config{
 			Path: testDir,
 		}
@@ -38,8 +36,7 @@ func TestManager_Apply(t *testing.T) {
 	t.Parallel()
 	t.Run("Valid entry", func(t *testing.T) {
 		t.Parallel()
-		dir, _ := os.Getwd()
-		testDir := filepath.Join(dir, ".temp-test")
+		testDir := t.TempDir()
 		cfg := &Config{
 			Path: testDir,
 		}
@@ -80,9 +77,5 @@ func TestManager_Apply(t *testing.T) {
 		require.Equal(t, entry.Operation, entryRead.Operation)
 		require.Equal(t, string(entry.Query), string(entryRead.Query))
 		require.Equal(t, entry.Timestamp.Unix(), entryRead.Timestamp.Unix())
-
-		// remove the test directory
-		err = os.RemoveAll(testDir)
-		require.NoError(t, err)
 	})
 }
