@@ -13,7 +13,7 @@ import (
 
 const (
 	dataDiskName       = ".table"
-	snapshotDir        = "snapshots"
+	snapshotDir        = ".snapshots"
 	dataFamilyLockFile = "families.config.json"
 )
 
@@ -34,8 +34,6 @@ type Manager struct {
 
 	allowedFamilies []string // Maps family names to allowed columns
 	familiesFile    string   // Path to store allowed family configuration
-
-	latestSnapshotFile string
 
 	// create a house for the snapshot process
 	changedRows               map[string]map[string]struct{} // initialized when first row is marked
@@ -82,10 +80,11 @@ func New(cfg *Config) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	snapDir := filepath.Join(dirName, snapshotDir)
-	if err := os.MkdirAll(snapshotDir, 0755); err != nil {
+	snapDir := filepath.Join(cfg.RootDir, snapshotDir)
+	if err := os.MkdirAll(snapDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create snapshot directory: %w", err)
 	}
+
 	// if we got nothing, set the default
 	if cfg.MaxSnapshotLimit == 0 {
 		cfg.MaxSnapshotLimit = defaultSnapshotLimit
@@ -97,7 +96,7 @@ func New(cfg *Config) (*Manager, error) {
 		rootDir:          cfg.RootDir,
 		dataDir:          dirName,
 		data:             make(litetable.Data),
-		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Minute,
+		snapshotDuration: time.Duration(cfg.FlushThreshold) * time.Second,
 		allowedFamilies:  make([]string, 0),
 		familiesFile:     filepath.Join(cfg.RootDir, dataFamilyLockFile),
 		maxSnapshotLimit: cfg.MaxSnapshotLimit,
@@ -124,11 +123,13 @@ func (m *Manager) Start() error {
 
 	// Start the background process for snapshots
 	go func() {
-		ticker := time.NewTicker(m.snapshotDuration)
+		snapshotTicker := time.NewTicker(m.snapshotDuration)
+		// whatever the snapshot is, add 50%
+		snapshotMerge := time.NewTicker(m.snapshotDuration + (m.snapshotDuration / 2))
 		pruneTicker := time.NewTicker(time.Duration(standardSnapshotPruneTime) * time.Minute)
 
 		defer func() {
-			ticker.Stop()
+			snapshotTicker.Stop()
 			pruneTicker.Stop()
 		}()
 
@@ -136,10 +137,15 @@ func (m *Manager) Start() error {
 			select {
 			case <-m.procCtx.Done():
 				return
-			case <-ticker.C:
-				err := m.saveSnapshot()
+			case <-snapshotTicker.C:
+				err := m.runIncrementalSnapshot()
 				if err != nil {
 					fmt.Printf("failed to save snapshot: %v\n", err)
+				}
+			case <-snapshotMerge.C:
+				err := m.snapshotMerge()
+				if err != nil {
+					fmt.Printf("failed to merge snapshot: %v\n", err)
 				}
 			case <-pruneTicker.C:
 				m.maintainSnapshotLimit()
@@ -149,13 +155,21 @@ func (m *Manager) Start() error {
 	return nil
 }
 
+// Stop is a blocking operation that flushes any remaining data to a snapshot before
+// allowing the process to shut down.
 func (m *Manager) Stop() error {
 	if m.ctxCancel != nil {
 		m.ctxCancel()
 	}
 
 	// Flush any remaining data
-	return m.saveSnapshot()
+	err := m.runIncrementalSnapshot()
+	if err != nil {
+		return fmt.Errorf("failed to flush data: %w", err)
+	}
+
+	// create a backup - this could take time
+	return m.snapshotMerge()
 }
 
 func (m *Manager) Name() string {

@@ -142,6 +142,18 @@ func (mr *MockstorageManagerMockRecorder) IsFamilyAllowed(family any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFamilyAllowed", reflect.TypeOf((*MockstorageManager)(nil).IsFamilyAllowed), family)
 }
 
+// MarkRowChanged mocks base method.
+func (m *MockstorageManager) MarkRowChanged(family, rowKey string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "MarkRowChanged", family, rowKey)
+}
+
+// MarkRowChanged indicates an expected call of MarkRowChanged.
+func (mr *MockstorageManagerMockRecorder) MarkRowChanged(family, rowKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkRowChanged", reflect.TypeOf((*MockstorageManager)(nil).MarkRowChanged), family, rowKey)
+}
+
 // UpdateFamilies mocks base method.
 func (m *MockstorageManager) UpdateFamilies(families []string) error {
 	m.ctrl.T.Helper()

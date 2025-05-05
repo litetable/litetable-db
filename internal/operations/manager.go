@@ -22,6 +22,7 @@ type storageManager interface {
 	GetData() *litetable.Data
 	IsFamilyAllowed(family string) bool
 	UpdateFamilies(families []string) error
+	MarkRowChanged(family, rowKey string)
 }
 
 type cdc interface {

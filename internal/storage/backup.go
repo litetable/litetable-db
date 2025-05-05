@@ -21,11 +21,12 @@ import (
 	"time"
 )
 
-// saveSnapshot saves the current state of the data to a snapshot file.
-func (m *Manager) saveSnapshot() error {
+// saveBackup creates a new backup file with the provided data. It does not interact with the memory
+// cache.
+func (m *Manager) saveBackup(data *litetable.Data) error {
 	filename := filepath.Join(m.dataDir, fmt.Sprintf("snapshot-%d.db", time.Now().UnixNano()))
 
-	dataBytes, err := json.Marshal(m.data)
+	dataBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to serialize snapshot: %w", err)
 	}
@@ -71,8 +72,6 @@ func (m *Manager) loadFromLatestSnapshot() error {
 		m.data = make(litetable.Data)
 		return nil
 	}
-
-	m.latestSnapshotFile = latest
 
 	dataBytes, err := os.ReadFile(latest)
 	if err != nil {

@@ -83,6 +83,9 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 		}
 	}
 
+	// mark the row as changed
+	m.storage.MarkRowChanged(parsed.family, parsed.rowKey)
+
 	// The data has been saved, now let's just return what's written
 	// Create response with all written values
 	result := &litetable.Row{
