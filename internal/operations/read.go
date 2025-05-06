@@ -44,9 +44,13 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 	}
 
 	// default to read by rowKey:
-	result, readRowErr := parsed.readRowKey(data)
+	row, readRowErr := parsed.readRowKey(data)
 	if readRowErr != nil {
 		return nil, readRowErr
+	}
+
+	result := map[string]*litetable.Row{
+		row.Key: row,
 	}
 
 	return json.Marshal(result)
