@@ -89,11 +89,11 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 
 	// The data has been saved, now let's just return what's written
 	// Create response with all written values
-	result := &litetable.Row{
+	row := &litetable.Row{
 		Key:     parsed.rowKey,
 		Columns: make(map[string]litetable.VersionedQualifier),
 	}
-	result.Columns[parsed.family] = make(litetable.VersionedQualifier)
+	row.Columns[parsed.family] = make(litetable.VersionedQualifier)
 
 	for i, qualifier := range parsed.qualifiers {
 		timestampedValue := litetable.TimestampedValue{
@@ -103,8 +103,12 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 
 		// Store result
 		values := []litetable.TimestampedValue{timestampedValue}
-		result.Columns[parsed.family][qualifier] = values
+		row.Columns[parsed.family][qualifier] = values
 
+	}
+
+	result := map[string]*litetable.Row{
+		row.Key: row,
 	}
 
 	return json.Marshal(result)
