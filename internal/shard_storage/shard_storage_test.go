@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestGetShardIndex(t *testing.T) {
+func TestManager_getShardIndex(t *testing.T) {
 	tests := map[string]struct {
 		shardCount int
 		rowKeys    []string
@@ -81,7 +81,6 @@ func TestGetShardIndexDistribution(t *testing.T) {
 	for i := 0; i < keyCount; i++ {
 		// generate a random string between 3-20 characters
 		// and use it as a key
-
 		ran := randomString(3, 20)
 		key := fmt.Sprintf("%s:%s", ran, uuid.NewString())
 		idx := manager.getShardIndex(key)

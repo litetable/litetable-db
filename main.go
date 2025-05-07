@@ -10,6 +10,7 @@ import (
 	"github.com/litetable/litetable-db/internal/operations"
 	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/server"
+	"github.com/litetable/litetable-db/internal/shard_storage"
 	"github.com/litetable/litetable-db/internal/storage"
 	"github.com/litetable/litetable-db/internal/storage/wal"
 	"github.com/rs/zerolog"
@@ -67,6 +68,20 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
+	// create a shard manager
+	shardManager, err := shard_storage.New(&shard_storage.Config{
+		RootDir:          certDir,
+		FlushThreshold:   cfg.BackupTimer,
+		SnapshotTimer:    cfg.SnapshotTimer,
+		MaxSnapshotLimit: cfg.MaxSnapshotLimit,
+		ShardCount:       8,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	deps = append(deps, shardManager)
+	
 	// create a disk storage manager
 	diskStorage, err := storage.New(&storage.Config{
 		RootDir:          certDir,

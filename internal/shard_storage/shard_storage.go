@@ -25,6 +25,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -43,6 +44,8 @@ type shard struct {
 	// each shard must monitor their own changes for the snapshot
 	changedRows map[string]map[string]struct{} // initialized when first row is marked
 
+	// Track if this shard has been initialized with data
+	initialized atomic.Bool
 }
 
 type shardConfig struct {
@@ -89,4 +92,8 @@ func (m *Manager) getShardIndex(rowKey string) int {
 
 	// Modulo to get shard index within range
 	return int(hash % uint32(m.shardCount))
+}
+
+func (s *shard) setInitialized() {
+	s.initialized.Store(true)
 }

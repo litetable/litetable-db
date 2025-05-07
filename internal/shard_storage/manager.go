@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -233,7 +234,12 @@ func (m *Manager) loadFromLatestBackup() error {
 		return fmt.Errorf("failed to parse snapshot %s: %w", latest, err)
 	}
 
-	m.data = loadedData
+	// Distribute data to shards concurrently, this is a blocking operation and will take some time
+	// based on the size of the data set, the number of shards and the number of logical CPU cores
+	// available on the system.
+	if err = m.distributeDataToShards(loadedData); err != nil {
+		return fmt.Errorf("failed to distribute data to shards: %w", err)
+	}
 
 	log.Debug().Str("duration", time.Since(start).String()).Msg("Data loaded from backup")
 	return nil
@@ -260,4 +266,72 @@ func (m *Manager) getLatestBackup() (string, error) {
 	}
 
 	return latest, nil
+}
+
+// distributeDataToShards takes loaded data and distributes it to the appropriate shards concurrently
+// using goroutines.
+//
+// Depending on the size of the data, this may take some time.
+// We are allocating all logical CPU cores for this task,
+// which might be overkill for 90% of datasets.
+func (m *Manager) distributeDataToShards(loadedData litetable.Data) error {
+	// Check if any shard has already been initialized
+	for i := range m.shardMap {
+		if m.shardMap[i].initialized.Load() {
+			return fmt.Errorf("attempted to distribute data to already initialized shards")
+		}
+	}
+
+	// Use concurrency to distribute data across shards
+	numWorkers := runtime.NumCPU()
+	rowChan := make(chan struct {
+		key      string
+		families map[string]litetable.VersionedQualifier
+	})
+	wg := sync.WaitGroup{}
+
+	// Initialize shards data if needed
+	for i := range m.shardMap {
+		m.shardMap[i].mutex.Lock()
+		if m.shardMap[i].data == nil {
+			m.shardMap[i].data = make(litetable.Data)
+		}
+		m.shardMap[i].mutex.Unlock()
+	}
+
+	// Start worker goroutines
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for item := range rowChan {
+				// Determine which shard this row belongs to
+				shardIdx := m.getShardIndex(item.key)
+
+				// Add the data to the shard
+				m.shardMap[shardIdx].mutex.Lock()
+				m.shardMap[shardIdx].data[item.key] = item.families
+				m.shardMap[shardIdx].mutex.Unlock()
+			}
+		}()
+	}
+
+	// Send data to workers
+	for rowKey, families := range loadedData {
+		rowChan <- struct {
+			key      string
+			families map[string]litetable.VersionedQualifier
+		}{key: rowKey, families: families}
+	}
+	close(rowChan)
+
+	// Wait for all workers to finish
+	wg.Wait()
+
+	// Mark all shards as initialized
+	for i := range m.shardMap {
+		m.shardMap[i].setInitialized()
+	}
+
+	return nil
 }
