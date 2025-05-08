@@ -5,6 +5,7 @@ import (
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/stretchr/testify/require"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -37,26 +38,23 @@ func TestManager_runIncrementalSnapshot(t *testing.T) {
 			},
 		},
 	}
+
 	tests := map[string]struct {
 		manager     *Manager
 		shouldWrite bool
 	}{
 		"successful run without changes": {
-			manager: &Manager{
-				snapshotDir: t.TempDir(),
-			},
+			manager: createTestShardManager(t, 2),
 		},
 		"successful run with changes": {
-			manager: &Manager{
-				snapshotDir: t.TempDir(),
-				data:        mockData,
-			},
+			manager:     createTestShardManager(t, 2),
 			shouldWrite: true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			initializeShardData(tc.manager, mockData)
 			if tc.shouldWrite {
 				tc.manager.MarkRowChanged("family1", "row1")
 				tc.manager.MarkRowChanged("family2", "row1")
@@ -95,5 +93,48 @@ func TestManager_runIncrementalSnapshot(t *testing.T) {
 				req.Equal(time.Time{}, tc.manager.lastPartialSnapshotTime, "should not have a valid timestamp")
 			}
 		})
+	}
+}
+
+// Helper function to create a test manager with shards
+func createTestShardManager(t *testing.T, shardCount int) *Manager {
+	manager := &Manager{
+		snapshotDir: t.TempDir(),
+		shardMap:    make([]*shard, shardCount),
+		changedRows: make(map[string]map[string]struct{}),
+	}
+
+	// Initialize shards
+	for i := 0; i < shardCount; i++ {
+		manager.shardMap[i] = &shard{
+			data:        make(litetable.Data),
+			mutex:       sync.RWMutex{},
+			changedRows: make(map[string]map[string]struct{}),
+		}
+	}
+
+	return manager
+}
+
+// Helper function to distribute test data across shards
+func initializeShardData(manager *Manager, mockData map[string]map[string]litetable.VersionedQualifier) {
+	for rowKey, families := range mockData {
+		// Determine which shard this row belongs to
+		shardIdx := manager.getShardIndex(rowKey)
+		sh := manager.shardMap[shardIdx]
+
+		// Lock the shard for writing
+		sh.mutex.Lock()
+
+		// Initialize row data structure if needed
+		if sh.data == nil {
+			sh.data = make(litetable.Data)
+		}
+
+		// Add row to the shard
+		sh.data[rowKey] = families
+
+		// Unlock the shard
+		sh.mutex.Unlock()
 	}
 }

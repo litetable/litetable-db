@@ -777,7 +777,7 @@ func Test_read(t *testing.T) {
 
 			req := require.New(t)
 
-			mockStorage := NewMockstorageManager(ctrl)
+			mockStorage := NewMockshardManager(ctrl)
 
 			if tc.validateFamily {
 				mockStorage.
@@ -789,12 +789,12 @@ func Test_read(t *testing.T) {
 			if tc.getData {
 				mockStorage.
 					EXPECT().
-					GetData().
+					GetRowByFamily(gomock.Any(), gomock.Any()).
 					Return(tc.mockData)
 			}
 
 			m := &Manager{
-				storage: mockStorage,
+				shardStorage: mockStorage,
 			}
 			got, err := m.read(tc.query)
 
