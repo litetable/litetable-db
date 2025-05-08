@@ -3,6 +3,8 @@ package shard_storage
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
+	"github.com/rs/zerolog/log"
 	"sort"
 	"time"
 )
@@ -81,8 +83,18 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp time
 			}
 		}
 	}
-	
-	// TODO - emit any changes and trigger garbage collection
+
+	// Mark the row as changed
+	m.MarkRowChanged(family, key)
+
+	// Send the delete data to the shard reaper
+	m.reaper.Reap(&reaper.ReapParams{
+		RowKey:     key,
+		Family:     family,
+		Qualifiers: qualifiers,
+		Timestamp:  timestamp,
+		ExpiresAt:  *expiresAt,
+	})
 	return nil
 }
 
@@ -121,4 +133,76 @@ func (m *Manager) addTombstone(
 	// 	RowKey:    rowKey,
 	// 	Column:    tombstone,
 	// })
+}
+
+// DeleteExpiredTombstones removes expired tombstones and returns true if changes were made
+func (m *Manager) DeleteExpiredTombstones(rowKey, family string, qualifiers []string, timestamp time.Time) bool {
+	// Determine which shard this row belongs to
+	shardIdx := m.getShardIndex(rowKey)
+	sh := m.shardMap[shardIdx]
+
+	sh.mutex.Lock()
+	defer sh.mutex.Unlock()
+
+	// Check if the row exists
+	row, exists := sh.data[rowKey]
+	if !exists {
+		log.Debug().Msgf("Row %s does not exist", rowKey)
+		return true
+	}
+
+	// Check if the family exists
+	familyData, exists := row[family]
+	if !exists {
+		log.Debug().Msgf("Family %s does not exist in row %s", family, rowKey)
+		return true
+	}
+
+	changed := false
+
+	// if we have no qualifiers, we should GC the entire family
+	if len(qualifiers) == 0 {
+		delete(row, family)
+		changed = true
+	} else {
+		// For any qualifier in the params, we should parse and compare timestamps
+		for _, qualifier := range qualifiers {
+			values, ex := familyData[qualifier]
+			if !ex {
+				log.Debug().Msgf("Qualifier %s does not exist in family %s", qualifier, family)
+				continue
+			}
+
+			// Filter out entries with timestamp ≤ params.Timestamp
+			var remainingValues []litetable.TimestampedValue
+			for _, entry := range values {
+				// save the relevant entries
+				if entry.Timestamp.After(timestamp) {
+					remainingValues = append(remainingValues, entry)
+				} else {
+					changed = true
+				}
+			}
+
+			// Update the qualifier with filtered values or remove it if empty
+			if len(remainingValues) > 0 {
+				familyData[qualifier] = remainingValues
+			} else {
+				delete(familyData, qualifier)
+				changed = true
+			}
+		}
+
+		// Clean up empty structures
+		if len(familyData) == 0 {
+			delete(row, family)
+		}
+	}
+
+	// If there is no data in the row key, it does not need to exist
+	if len(row) == 0 {
+		delete(sh.data, rowKey)
+	}
+
+	return changed
 }

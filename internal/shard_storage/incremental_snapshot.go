@@ -1,4 +1,4 @@
-package storage
+package shard_storage
 
 import (
 	"encoding/json"
@@ -74,38 +74,66 @@ func (m *Manager) createIncrementalSnapshotData(time time.Time) *snapShopData {
 		SnapshotData:      make(map[string]*map[string]litetable.VersionedQualifier),
 	}
 
-	// lock the mutex around working with the cache
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	// Lock the mutex around working with the changed rows
+	m.mutex.RLock()
+	// Make a copy of changed rows so we can release the lock quickly
+	changedRowsCopy := make(map[string]map[string]struct{}, len(m.changedRows))
+	for rowKey, families := range m.changedRows {
+		familiesCopy := make(map[string]struct{}, len(families))
+		for family := range families {
+			familiesCopy[family] = struct{}{}
+		}
+		changedRowsCopy[rowKey] = familiesCopy
+	}
+	m.mutex.RUnlock()
 
-	data := m.data
+	// Process each changed row
+	for rowKey, changedFamilies := range changedRowsCopy {
+		// Determine which shard this row belongs to
+		shardIdx := m.getShardIndex(rowKey)
 
-	for k, cf := range m.changedRows {
-		// check to see if the key exists in memory if it doesn't just continue on
-		row, ok := data[k]
+		// Get the shard
+		sh := m.shardMap[shardIdx]
+
+		// Lock the shard for reading
+		sh.mutex.RLock()
+
+		// Check if the row exists in the shard
+		row, ok := sh.data[rowKey]
 		if !ok {
-			fmt.Printf("row %s does not exist in data\n", k)
+			sh.mutex.RUnlock()
+			log.Debug().Msgf("row %s does not exist in shard %d", rowKey, shardIdx)
 			continue
 		}
 
+		// Create a map for this row's families in the snapshot
 		rowFamilies := make(map[string]litetable.VersionedQualifier)
-		snap.SnapshotData[k] = &rowFamilies
+		snap.SnapshotData[rowKey] = &rowFamilies
 
-		// check to see if the family exists in on the row if it doesn't just continue on
-		for fam := range cf {
-			family, exists := row[fam]
+		// Process each family that was marked as changed
+		for familyName := range changedFamilies {
+			family, exists := row[familyName]
 			if !exists {
-				fmt.Printf("family %s does not exist in row %s\n", fam, k)
+				log.Debug().Msgf("family %s does not exist in row %s", familyName, rowKey)
 				continue
 			}
 
-			rowFamilies[fam] = make(litetable.VersionedQualifier)
+			// Create a map for this family's qualifiers
+			rowFamilies[familyName] = make(litetable.VersionedQualifier)
 
-			// Copy each qualifier from this family to the versioned qualifier
+			// Deep copy all qualifiers and their values for this family
 			for qualifier, values := range family {
-				rowFamilies[fam][qualifier] = values
+				// Make a copy of the values slice
+				valuesCopy := make([]litetable.TimestampedValue, len(values))
+				copy(valuesCopy, values)
+
+				// Add to the snapshot
+				rowFamilies[familyName][qualifier] = valuesCopy
 			}
 		}
+
+		// Release the shard lock
+		sh.mutex.RUnlock()
 	}
 
 	return snap

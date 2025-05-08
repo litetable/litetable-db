@@ -2,10 +2,10 @@ package shard_storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
 	"hash/fnv"
 	"os"
@@ -14,6 +14,10 @@ import (
 	"sync"
 	"time"
 )
+
+type garbageCollector interface {
+	Reap(p *reaper.ReapParams)
+}
 
 const (
 	backupDirName      = ".table_backup"
@@ -31,7 +35,6 @@ var (
 type Manager struct {
 	rootDir string
 	dataDir string
-	data    litetable.Data
 	mutex   sync.RWMutex
 
 	backupTimer      time.Duration
@@ -47,6 +50,9 @@ type Manager struct {
 	lastPartialSnapshotTime   time.Time
 	latestPartialSnapshotFile string
 	snapshotDir               string
+
+	// garbage collection
+	reaper garbageCollector
 
 	procCtx   context.Context
 	ctxCancel context.CancelFunc
@@ -89,20 +95,20 @@ func (c *Config) validate() error {
 	return errors.Join(errGrp...)
 }
 
-// New creates a new disk storage manager
-func New(cfg *Config) (*Manager, error) {
+// New creates a new shard storage manager
+func New(cfg *Config) (*Manager, *reaper.Reaper, error) {
 	if err := cfg.validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	backupDir := filepath.Join(cfg.RootDir, backupDirName)
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create data directory: %w", err)
+		return nil, nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
 	snapDir := filepath.Join(cfg.RootDir, snapshotDir)
 	if err := os.MkdirAll(snapDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create snapshot directory: %w", err)
+		return nil, nil, fmt.Errorf("failed to create snapshot directory: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -116,7 +122,6 @@ func New(cfg *Config) (*Manager, error) {
 	m := &Manager{
 		rootDir:          cfg.RootDir,
 		dataDir:          backupDir,
-		data:             make(litetable.Data),
 		snapshotTimer:    time.Duration(cfg.SnapshotTimer) * time.Second,
 		backupTimer:      time.Duration(cfg.FlushThreshold) * time.Second,
 		allowedFamilies:  make([]string, 0),
@@ -132,7 +137,7 @@ func New(cfg *Config) (*Manager, error) {
 
 	// load any existing column families
 	if err := m.loadAllowedFamilies(); err != nil {
-		return nil, fmt.Errorf("failed to load allowed families: %w", err)
+		return nil, nil, fmt.Errorf("failed to load allowed families: %w", err)
 	}
 
 	// create the shards
@@ -140,7 +145,7 @@ func New(cfg *Config) (*Manager, error) {
 		count: m.shardCount,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// assign the shards to the manager
@@ -149,7 +154,18 @@ func New(cfg *Config) (*Manager, error) {
 		m.shardMap[i] = shards[i]
 	}
 
-	return m, nil
+	// create a garbage collector
+	gc, err := reaper.New(&reaper.Config{
+		Path:       cfg.RootDir,
+		Storage:    m,
+		GCInterval: 10,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create garbage collector: %w", err)
+	}
+
+	m.reaper = gc
+	return m, gc, nil
 }
 
 // Start initializes disk storage for the manager.
@@ -160,9 +176,37 @@ func (m *Manager) Start() error {
 		return err
 	}
 
-	// TODO: start each shard in a separate go routine
-	// each shard should have their own shutdown process
+	// Start the background process for snapshots
+	go func() {
+		snapshotTicker := time.NewTicker(m.snapshotTimer)
+		// whatever the snapshot is, add 50%
+		snapshotMerge := time.NewTicker(m.backupTimer + (m.backupTimer / 2))
+		pruneTicker := time.NewTicker(time.Duration(standardSnapshotPruneTime) * time.Minute)
 
+		defer func() {
+			snapshotTicker.Stop()
+			pruneTicker.Stop()
+		}()
+
+		for {
+			select {
+			case <-m.procCtx.Done():
+				return
+			case <-snapshotTicker.C:
+				err := m.runIncrementalSnapshot()
+				if err != nil {
+					fmt.Printf("failed to save snapshot: %v\n", err)
+				}
+			case <-snapshotMerge.C:
+				err := m.snapshotMerge()
+				if err != nil {
+					fmt.Printf("failed to merge snapshot: %v\n", err)
+				}
+			case <-pruneTicker.C:
+				m.maintainSnapshotLimit()
+			}
+		}
+	}()
 	return nil
 }
 
@@ -173,32 +217,18 @@ func (m *Manager) Stop() error {
 		m.ctxCancel()
 	}
 
-	return nil
+	// Flush any remaining data
+	err := m.runIncrementalSnapshot()
+	if err != nil {
+		return fmt.Errorf("failed to flush data: %w", err)
+	}
+
+	// create a backup - this could take time
+	return m.snapshotMerge()
 }
 
 func (m *Manager) Name() string {
 	return "Shard Storage"
-}
-
-func (m *Manager) IsFamilyAllowed(family string) bool {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	// If no allowed families are defined, don't allow any
-	if len(m.allowedFamilies) == 0 {
-		return false
-	}
-
-	for _, f := range m.allowedFamilies {
-		if f == family {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *Manager) FamilyLockFile() string {
-	return filepath.Join(m.rootDir, dataFamilyLockFile)
 }
 
 func (m *Manager) RWLock() {
@@ -207,77 +237,6 @@ func (m *Manager) RWLock() {
 
 func (m *Manager) RWUnlock() {
 	m.mutex.Unlock()
-}
-
-func (m *Manager) loadAllowedFamilies() error {
-	data, err := os.ReadFile(m.familiesFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// File doesn't exist yet, not an error
-			return nil
-		}
-		return fmt.Errorf("failed to read allowed families file: %w", err)
-	}
-
-	return json.Unmarshal(data, &m.allowedFamilies)
-}
-
-// loadFromLatestBackup loads the latest backup file into the data cache.
-func (m *Manager) loadFromLatestBackup() error {
-	start := time.Now()
-	latest, err := m.getLatestBackup()
-	if err != nil {
-		return fmt.Errorf("failed to get latest snapshot: %w", err)
-	}
-
-	if latest == "" {
-		// No snapshot files found; initialize with empty data
-		m.data = make(litetable.Data)
-		return nil
-	}
-
-	dataBytes, err := os.ReadFile(latest)
-	if err != nil {
-		return fmt.Errorf("failed to read snapshot %s: %w", latest, err)
-	}
-
-	var loadedData litetable.Data
-	if err := json.Unmarshal(dataBytes, &loadedData); err != nil {
-		return fmt.Errorf("failed to parse snapshot %s: %w", latest, err)
-	}
-
-	// Distribute data to shards concurrently, this is a blocking operation and will take some time
-	// based on the size of the data set, the number of shards and the number of logical CPU cores
-	// available on the system.
-	if err = m.distributeDataToShards(loadedData); err != nil {
-		return fmt.Errorf("failed to distribute data to shards: %w", err)
-	}
-
-	log.Debug().Str("duration", time.Since(start).String()).Msg("Data loaded from backup")
-	return nil
-}
-
-// getLatestBackup returns the latest full-snapshot file in the data directory.
-func (m *Manager) getLatestBackup() (string, error) {
-	files, err := filepath.Glob(filepath.Join(m.dataDir, backupFileGlob))
-	if err != nil {
-		return "", err
-	}
-
-	if len(files) == 0 {
-		// No snapshots yet, nothing to load
-		return "", nil
-	}
-
-	// Find the newest snapshot file
-	latest := files[0]
-	for _, file := range files {
-		if file > latest {
-			latest = file
-		}
-	}
-
-	return latest, nil
 }
 
 // distributeDataToShards takes loaded data and distributes it to the appropriate shards concurrently
@@ -324,8 +283,6 @@ func (m *Manager) distributeDataToShards(loadedData litetable.Data) error {
 				m.shardMap[shardIdx].mutex.Lock()
 				m.shardMap[shardIdx].data[item.key] = item.families
 				m.shardMap[shardIdx].mutex.Unlock()
-
-				log.Debug().Str("row_key", item.key).Int("shard_index", shardIdx).Msg("Distributing data to shard")
 			}
 		}()
 	}
@@ -364,4 +321,24 @@ func (m *Manager) getShardIndex(rowKey string) int {
 
 	// Modulo to get shard index within range
 	return int(hash % uint32(m.shardCount))
+}
+
+// MarkRowChanged will save the row key and family name to the changedRows map.
+//
+// We are using an empty struct{} because it takes 0 bytes.
+func (m *Manager) MarkRowChanged(family, rowKey string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.changedRows == nil {
+		m.changedRows = make(map[string]map[string]struct{})
+	}
+
+	if _, exists := m.changedRows[rowKey]; !exists {
+		m.changedRows[rowKey] = make(map[string]struct{})
+	}
+
+	// Add the family to the row key (this may be overwriting, but that's okay because
+	// we just want to make sure the family is in the map)
+	m.changedRows[rowKey][family] = struct{}{}
 }

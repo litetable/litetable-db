@@ -29,7 +29,7 @@ func (m *Manager) create(query []byte) error {
 	// Split the family value by commas to get individual family names
 	families := strings.Split(familyValue, ",")
 
-	err := m.storage.UpdateFamilies(families)
+	err := m.shardStorage.UpdateFamilies(families)
 	if err != nil {
 		return newError(err, "failed to update families")
 	}

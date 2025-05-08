@@ -3,6 +3,8 @@ package shard_storage
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
@@ -53,12 +55,32 @@ func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]b
 		s.data[rowKey][family][qualifier] = append(
 			s.data[rowKey][family][qualifier], newValue,
 		)
+		// TODO: emit the change on the shard
+		// Emit CDC event for each qualifier update
+		// if m.cdc != nil {
+		// 	m.cdc.Emit(&cdc_emitter.CDCParams{
+		// 		Operation: litetable.OperationWrite,
+		// 		RowKey:    rowKey,
+		// 		Family:    family,
+		// 		Qualifier: qualifier,
+		// 		Column:    newValue,
+		// 	})
+		// }
 	}
 
-	// emit the change on the shard
+	// Handle garbage collection if an expiresAt time is passed
+	if expiresAt != nil {
+		log.Debug().Msg("calling reaper on write operation")
+		m.reaper.Reap(&reaper.ReapParams{
+			RowKey:     rowKey,
+			Family:     family,
+			Qualifiers: qualifiers,
+			Timestamp:  timestamp,
+			ExpiresAt:  *expiresAt,
+		})
+	}
 
-	// Mark the row as changed for compaction/persistence
-	// m.markRowChanged(shardKey, family, rowKey)
+	m.MarkRowChanged(family, rowKey)
 
 	return nil
 }

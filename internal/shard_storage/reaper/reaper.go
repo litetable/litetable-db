@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/rs/zerolog/log"
 	"os"
 	"time"
@@ -103,7 +102,7 @@ func (r *Reaper) garbageCollector() {
 				removed++
 
 				// if deleted, we need to report this change to the snapshot server
-				r.storage.MarkRowChanged(params.Family, params.RowKey)
+				r.storageManager.MarkRowChanged(params.Family, params.RowKey)
 			} else {
 				// the entry is still valid and should remain in the file
 				activeEntries = append(activeEntries, params)
@@ -133,77 +132,7 @@ func (r *Reaper) garbageCollector() {
 }
 
 func (r *Reaper) didDeleteTombstone(params *ReapParams) bool {
-
-	data := r.storage.GetData()
-
-	// Check if the row exists
-	row, exists := (*data)[params.RowKey]
-	if !exists {
-		log.Debug().Msgf("Row %s does not exist", params.RowKey)
-		return true
-	}
-
-	// Check if the family exists
-	family, exists := row[params.Family]
-	if !exists {
-		log.Debug().Msgf("Family %s does not exist in row %s", params.Family, params.RowKey)
-		return true
-	}
-
-	// Reaper is modifying data from this point forward, so add a RWLock() on storage
-	r.storage.RWLock()
-	defer r.storage.RWUnlock()
-
-	changed := false
-
-	// if we have no qualifiers in our ReapParams, we should GC the entire family
-	if len(params.Qualifiers) == 0 {
-		delete(row, params.Family)
-		changed = true
-	} else {
-		// For any qualifier in the params, we should parse and compare timestamps
-		for _, qualifier := range params.Qualifiers {
-			values, exists := family[qualifier]
-			if !exists {
-				log.Debug().Msgf("Qualifier %s does not exist in family %s", qualifier,
-					params.Family)
-				continue
-			}
-
-			// Filter out entries with timestamp ≤ params.Timestamp. We don't need to specifically
-			// check for tombstones since all GC requires a timestamp.
-			// Anything before that timestamp is considered prime for reaping.
-			var remainingValues []litetable.TimestampedValue
-			for _, entry := range values {
-				// save the relevant entries
-				if entry.Timestamp.After(params.Timestamp) {
-					remainingValues = append(remainingValues, entry)
-				} else {
-					changed = true
-				}
-			}
-
-			// Update the qualifier with filtered values or remove it if empty
-			if len(remainingValues) > 0 {
-				family[qualifier] = remainingValues
-			} else {
-				delete(family, qualifier)
-				changed = true
-			}
-		}
-
-		// Clean up empty structures
-		if len(family) == 0 {
-			delete(row, params.Family)
-		}
-	}
-
-	// If there is no data in the row key, it does not need to exist.
-	if len(row) == 0 {
-		delete(*data, params.RowKey)
-	}
-
-	return changed
+	return r.storageManager.DeleteExpiredTombstones(params.RowKey, params.Family, params.Qualifiers, params.Timestamp)
 }
 
 // rewriteGCLog rewrites the GC log file with only active entries.

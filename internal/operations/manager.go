@@ -4,8 +4,7 @@ import (
 	"errors"
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/reaper"
-	"github.com/litetable/litetable-db/internal/storage/wal"
+	"github.com/litetable/litetable-db/internal/shard_storage/wal"
 	"time"
 )
 
@@ -15,22 +14,13 @@ type writeAhead interface {
 	Apply(e *wal.Entry) error
 }
 
-type garbageCollector interface {
-	Reap(p *reaper.ReapParams)
-}
-
-type storageManager interface {
-	GetData() *litetable.Data
-	IsFamilyAllowed(family string) bool
-	UpdateFamilies(families []string) error
-	MarkRowChanged(family, rowKey string)
-}
-
 type shardManager interface {
 	GetRowByFamily(key, family string) (*litetable.Data, bool)
 	FilterRowsByPrefix(prefix string) (*litetable.Data, bool)
 	FilterRowsByRegex(regex string) (*litetable.Data, bool)
+
 	IsFamilyAllowed(family string) bool
+	UpdateFamilies(families []string) error
 
 	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time, expiresAt *time.Time) error
 	Delete(key, family string, qualifiers []string, timestamp time.Time,
@@ -42,34 +32,25 @@ type cdc interface {
 }
 
 type Manager struct {
-	garbageCollector garbageCollector
-	writeAhead       writeAhead
-	defaultTTL       int64
-	storage          storageManager
-	shardStorage     shardManager
-	cdc              cdc
-	isHealthy        bool
+	writeAhead   writeAhead
+	defaultTTL   int64
+	shardStorage shardManager
+	cdc          cdc
+	isHealthy    bool
 }
 
 type Config struct {
-	GarbageCollector garbageCollector
-	WAL              writeAhead
-	Storage          storageManager
-	ShardStorage     shardManager
-	CDC              cdc
+	WAL          writeAhead
+	ShardStorage shardManager
+	CDC          cdc
 }
 
 func (c *Config) validate() error {
 	var errGrp []error
-	if c.GarbageCollector == nil {
-		errGrp = append(errGrp, errors.New("garbage collector cannot be nil"))
-	}
 	if c.WAL == nil {
 		errGrp = append(errGrp, errors.New("WAL cannot be nil"))
 	}
-	if c.Storage == nil {
-		errGrp = append(errGrp, errors.New("storage cannot be nil"))
-	}
+
 	if c.ShardStorage == nil {
 		errGrp = append(errGrp, errors.New("shard storage cannot be nil"))
 	}
@@ -86,12 +67,10 @@ func New(cfg *Config) (*Manager, error) {
 	}
 
 	return &Manager{
-		garbageCollector: cfg.GarbageCollector,
-		writeAhead:       cfg.WAL,
-		defaultTTL:       3600, // configure default for 1 hour
-		storage:          cfg.Storage,
-		shardStorage:     cfg.ShardStorage,
-		cdc:              cfg.CDC,
-		isHealthy:        true,
+		writeAhead:   cfg.WAL,
+		defaultTTL:   3600, // configure default for 1 hour
+		shardStorage: cfg.ShardStorage,
+		cdc:          cfg.CDC,
+		isHealthy:    true,
 	}, nil
 }

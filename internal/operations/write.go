@@ -3,10 +3,7 @@ package operations
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/reaper"
-	"github.com/rs/zerolog/log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -39,40 +36,6 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Write all qualifier-value pairs with the same timestamp
-	for i := range parsed.qualifiers {
-		newRow := litetable.TimestampedValue{
-			Value:     parsed.values[i],
-			Timestamp: parsed.timestamp,
-		}
-
-		if parsed.expiresAt != nil {
-			newRow.IsTombstone = true
-			newRow.ExpiresAt = *parsed.expiresAt
-		}
-
-		m.cdc.Emit(&cdc_emitter.CDCParams{
-			Operation: litetable.OperationWrite,
-			RowKey:    parsed.rowKey,
-			Column:    newRow,
-		})
-
-		// Handle garbage collection if needed
-		if parsed.expiresAt != nil {
-			log.Debug().Msg("calling reaper on write operation")
-			m.garbageCollector.Reap(&reaper.ReapParams{
-				RowKey:     parsed.rowKey,
-				Family:     parsed.family,
-				Qualifiers: parsed.qualifiers,
-				Timestamp:  parsed.timestamp,
-				ExpiresAt:  *parsed.expiresAt,
-			})
-		}
-	}
-
-	// mark the row as changed
-	m.storage.MarkRowChanged(parsed.family, parsed.rowKey)
 
 	// The data has been saved, now let's just return what's written
 	// Create response with all written values

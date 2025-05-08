@@ -1,11 +1,16 @@
-package storage
+package shard_storage
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
+
+func (m *Manager) FamilyLockFile() string {
+	return filepath.Join(m.rootDir, dataFamilyLockFile)
+}
 
 func (m *Manager) UpdateFamilies(new []string) error {
 	// create a copy of configured families
