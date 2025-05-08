@@ -11,11 +11,11 @@ package operations
 
 import (
 	reflect "reflect"
+	time "time"
 
 	cdc_emitter "github.com/litetable/litetable-db/internal/cdc_emitter"
 	litetable "github.com/litetable/litetable-db/internal/litetable"
-	reaper "github.com/litetable/litetable-db/internal/reaper"
-	wal "github.com/litetable/litetable-db/internal/storage/wal"
+	wal "github.com/litetable/litetable-db/internal/shard_storage/wal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -56,80 +56,104 @@ func (mr *MockwriteAheadMockRecorder) Apply(e any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockwriteAhead)(nil).Apply), e)
 }
 
-// MockgarbageCollector is a mock of garbageCollector interface.
-type MockgarbageCollector struct {
+// MockshardManager is a mock of shardManager interface.
+type MockshardManager struct {
 	ctrl     *gomock.Controller
-	recorder *MockgarbageCollectorMockRecorder
+	recorder *MockshardManagerMockRecorder
 }
 
-// MockgarbageCollectorMockRecorder is the mock recorder for MockgarbageCollector.
-type MockgarbageCollectorMockRecorder struct {
-	mock *MockgarbageCollector
+// MockshardManagerMockRecorder is the mock recorder for MockshardManager.
+type MockshardManagerMockRecorder struct {
+	mock *MockshardManager
 }
 
-// NewMockgarbageCollector creates a new mock instance.
-func NewMockgarbageCollector(ctrl *gomock.Controller) *MockgarbageCollector {
-	mock := &MockgarbageCollector{ctrl: ctrl}
-	mock.recorder = &MockgarbageCollectorMockRecorder{mock}
+// NewMockshardManager creates a new mock instance.
+func NewMockshardManager(ctrl *gomock.Controller) *MockshardManager {
+	mock := &MockshardManager{ctrl: ctrl}
+	mock.recorder = &MockshardManagerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockgarbageCollector) EXPECT() *MockgarbageCollectorMockRecorder {
+func (m *MockshardManager) EXPECT() *MockshardManagerMockRecorder {
 	return m.recorder
 }
 
-// Reap mocks base method.
-func (m *MockgarbageCollector) Reap(p *reaper.ReapParams) {
+// Apply mocks base method.
+func (m *MockshardManager) Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time, expiresAt *time.Time) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Reap", p)
-}
-
-// Reap indicates an expected call of Reap.
-func (mr *MockgarbageCollectorMockRecorder) Reap(p any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reap", reflect.TypeOf((*MockgarbageCollector)(nil).Reap), p)
-}
-
-// MockstorageManager is a mock of storageManager interface.
-type MockstorageManager struct {
-	ctrl     *gomock.Controller
-	recorder *MockstorageManagerMockRecorder
-}
-
-// MockstorageManagerMockRecorder is the mock recorder for MockstorageManager.
-type MockstorageManagerMockRecorder struct {
-	mock *MockstorageManager
-}
-
-// NewMockstorageManager creates a new mock instance.
-func NewMockstorageManager(ctrl *gomock.Controller) *MockstorageManager {
-	mock := &MockstorageManager{ctrl: ctrl}
-	mock.recorder = &MockstorageManagerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockstorageManager) EXPECT() *MockstorageManagerMockRecorder {
-	return m.recorder
-}
-
-// GetData mocks base method.
-func (m *MockstorageManager) GetData() *litetable.Data {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetData")
-	ret0, _ := ret[0].(*litetable.Data)
+	ret := m.ctrl.Call(m, "Apply", rowKey, family, qualifiers, values, timestamp, expiresAt)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// GetData indicates an expected call of GetData.
-func (mr *MockstorageManagerMockRecorder) GetData() *gomock.Call {
+// Apply indicates an expected call of Apply.
+func (mr *MockshardManagerMockRecorder) Apply(rowKey, family, qualifiers, values, timestamp, expiresAt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetData", reflect.TypeOf((*MockstorageManager)(nil).GetData))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockshardManager)(nil).Apply), rowKey, family, qualifiers, values, timestamp, expiresAt)
+}
+
+// Delete mocks base method.
+func (m *MockshardManager) Delete(key, family string, qualifiers []string, timestamp time.Time, expiresAt *time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", key, family, qualifiers, timestamp, expiresAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockshardManagerMockRecorder) Delete(key, family, qualifiers, timestamp, expiresAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockshardManager)(nil).Delete), key, family, qualifiers, timestamp, expiresAt)
+}
+
+// FilterRowsByPrefix mocks base method.
+func (m *MockshardManager) FilterRowsByPrefix(prefix string) (*litetable.Data, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilterRowsByPrefix", prefix)
+	ret0, _ := ret[0].(*litetable.Data)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// FilterRowsByPrefix indicates an expected call of FilterRowsByPrefix.
+func (mr *MockshardManagerMockRecorder) FilterRowsByPrefix(prefix any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterRowsByPrefix", reflect.TypeOf((*MockshardManager)(nil).FilterRowsByPrefix), prefix)
+}
+
+// FilterRowsByRegex mocks base method.
+func (m *MockshardManager) FilterRowsByRegex(regex string) (*litetable.Data, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilterRowsByRegex", regex)
+	ret0, _ := ret[0].(*litetable.Data)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// FilterRowsByRegex indicates an expected call of FilterRowsByRegex.
+func (mr *MockshardManagerMockRecorder) FilterRowsByRegex(regex any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterRowsByRegex", reflect.TypeOf((*MockshardManager)(nil).FilterRowsByRegex), regex)
+}
+
+// GetRowByFamily mocks base method.
+func (m *MockshardManager) GetRowByFamily(key, family string) (*litetable.Data, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRowByFamily", key, family)
+	ret0, _ := ret[0].(*litetable.Data)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// GetRowByFamily indicates an expected call of GetRowByFamily.
+func (mr *MockshardManagerMockRecorder) GetRowByFamily(key, family any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRowByFamily", reflect.TypeOf((*MockshardManager)(nil).GetRowByFamily), key, family)
 }
 
 // IsFamilyAllowed mocks base method.
-func (m *MockstorageManager) IsFamilyAllowed(family string) bool {
+func (m *MockshardManager) IsFamilyAllowed(family string) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsFamilyAllowed", family)
 	ret0, _ := ret[0].(bool)
@@ -137,25 +161,13 @@ func (m *MockstorageManager) IsFamilyAllowed(family string) bool {
 }
 
 // IsFamilyAllowed indicates an expected call of IsFamilyAllowed.
-func (mr *MockstorageManagerMockRecorder) IsFamilyAllowed(family any) *gomock.Call {
+func (mr *MockshardManagerMockRecorder) IsFamilyAllowed(family any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFamilyAllowed", reflect.TypeOf((*MockstorageManager)(nil).IsFamilyAllowed), family)
-}
-
-// MarkRowChanged mocks base method.
-func (m *MockstorageManager) MarkRowChanged(family, rowKey string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "MarkRowChanged", family, rowKey)
-}
-
-// MarkRowChanged indicates an expected call of MarkRowChanged.
-func (mr *MockstorageManagerMockRecorder) MarkRowChanged(family, rowKey any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkRowChanged", reflect.TypeOf((*MockstorageManager)(nil).MarkRowChanged), family, rowKey)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFamilyAllowed", reflect.TypeOf((*MockshardManager)(nil).IsFamilyAllowed), family)
 }
 
 // UpdateFamilies mocks base method.
-func (m *MockstorageManager) UpdateFamilies(families []string) error {
+func (m *MockshardManager) UpdateFamilies(families []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateFamilies", families)
 	ret0, _ := ret[0].(error)
@@ -163,9 +175,9 @@ func (m *MockstorageManager) UpdateFamilies(families []string) error {
 }
 
 // UpdateFamilies indicates an expected call of UpdateFamilies.
-func (mr *MockstorageManagerMockRecorder) UpdateFamilies(families any) *gomock.Call {
+func (mr *MockshardManagerMockRecorder) UpdateFamilies(families any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFamilies", reflect.TypeOf((*MockstorageManager)(nil).UpdateFamilies), families)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFamilies", reflect.TypeOf((*MockshardManager)(nil).UpdateFamilies), families)
 }
 
 // Mockcdc is a mock of cdc interface.

@@ -19,41 +19,57 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	if !m.storage.IsFamilyAllowed(parsed.family) {
+	if !m.shardStorage.IsFamilyAllowed(parsed.family) {
 		return nil, fmt.Errorf("column family does not exist: %s", parsed.family)
 	}
 
-	data := m.storage.GetData()
-
 	// Alt case 1: Row key prefix filtering
 	if parsed.rowKeyPrefix != "" {
-		result, filterRowsErr := parsed.filterRowsByPrefix(data)
-		if filterRowsErr != nil {
-			return nil, filterRowsErr
+		d, found := m.shardStorage.FilterRowsByPrefix(parsed.rowKeyPrefix)
+		if !found {
+			return nil, fmt.Errorf("no rows found with prefix: %s", parsed.rowKeyPrefix)
+		}
+
+		result := parsed.processFilteredData(*d)
+		if len(result) == 0 {
+			return nil, fmt.Errorf("no matching rows found with prefix: %s", parsed.rowKeyPrefix)
 		}
 		return json.Marshal(result)
 	}
 
 	// Alt case 2: Row key regex matching
 	if parsed.rowKeyRegex != "" {
-		result, readRowsErr := parsed.filterRowsByRegex(data)
-		if readRowsErr != nil {
-			return nil, readRowsErr
+		data, found := m.shardStorage.FilterRowsByRegex(parsed.rowKeyRegex)
+		if !found {
+			return nil, fmt.Errorf("no rows found matching regex: %s", parsed.rowKeyRegex)
 		}
+
+		result := parsed.processFilteredData(*data)
+		if len(result) == 0 {
+			return nil, fmt.Errorf("no matching rows found with regex: %s", parsed.rowKeyRegex)
+
+		}
+
 		return json.Marshal(result)
 	}
 
 	// default to read by rowKey:
-	row, readRowErr := parsed.readRowKey(data)
-	if readRowErr != nil {
-		return nil, readRowErr
+	data, exists := m.shardStorage.GetRowByFamily(parsed.rowKey, parsed.family)
+	if !exists {
+		return nil, fmt.Errorf("row not found: %s", parsed.rowKey)
 	}
 
-	result := map[string]*litetable.Row{
+	// Create a proper Row structure with the data
+	row, err := parsed.readRowKey(data)
+	if err != nil {
+		return nil, err
+	}
+
+	r := map[string]*litetable.Row{
 		row.Key: row,
 	}
 
-	return json.Marshal(result)
+	return json.Marshal(r)
 }
 
 // readQuery are the parameters for any supported read query
@@ -351,4 +367,55 @@ func (r *readQuery) getLatestN(values []litetable.TimestampedValue, n int) []lit
 
 	// Otherwise, return the top n values
 	return valuesCopy[:n]
+}
+
+// processFilteredData takes raw data returned from sharded storage and applies
+// additional filtering based on the query parameters (family, qualifiers, latest)
+func (r *readQuery) processFilteredData(data litetable.Data) map[string]*litetable.Row {
+	results := make(map[string]*litetable.Row)
+
+	for rowKey, rowData := range data {
+		// Skip rows that don't have the requested family
+		family, exists := rowData[r.family]
+		if !exists {
+			continue
+		}
+
+		// Create result container for this row
+		result := &litetable.Row{
+			Key:     rowKey,
+			Columns: make(map[string]litetable.VersionedQualifier),
+		}
+		result.Columns[r.family] = make(litetable.VersionedQualifier)
+
+		// If no qualifiers specified, return all qualifiers in the family
+		if len(r.qualifiers) == 0 {
+			for qualifier, values := range family {
+				filteredValues := r.getLatestN(values, r.latest)
+				// Only add qualifier if it has values after tombstone filtering
+				if len(filteredValues) > 0 {
+					result.Columns[r.family][qualifier] = filteredValues
+				}
+			}
+		} else {
+			// Return only requested qualifiers
+			for _, qualifier := range r.qualifiers {
+				values, exists := family[qualifier]
+				if !exists {
+					continue // Skip non-existing qualifiers
+				}
+				filteredValues := r.getLatestN(values, r.latest)
+				if len(filteredValues) > 0 {
+					result.Columns[r.family][qualifier] = filteredValues
+				}
+			}
+		}
+
+		// Only add non-empty rows to results
+		if len(result.Columns[r.family]) > 0 {
+			results[rowKey] = result
+		}
+	}
+
+	return results
 }

@@ -1,4 +1,4 @@
-// Package storage provides the interface for data storage management.
+// Package shard_storage provides the interface for data storage management.
 //
 // Saving to disk is fairly straight-forward, but snapshotting is a process that requires
 // some consideration for how data is merged.
@@ -7,7 +7,7 @@
 // external replication; which would work similar to a prometheus server.
 //
 // Garbage collection would continue to be handled by the reaper, who would also report changes.
-package storage
+package shard_storage
 
 import (
 	"encoding/json"
@@ -18,10 +18,6 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-)
-
-const (
-	backupFileGlob = "backup-*.db"
 )
 
 // saveBackup creates a new backup file with the provided data. It does not interact with the memory
@@ -40,6 +36,37 @@ func (m *Manager) saveBackup(data *litetable.Data) error {
 	}
 
 	log.Debug().Str("duration", time.Since(start).String()).Msgf("Backup saved to %s", filename)
+	return nil
+}
+
+// loadFromLatestBackup loads the latest backup file into the data cache.
+func (m *Manager) loadFromLatestBackup() error {
+	start := time.Now()
+	latest, err := m.getLatestBackup()
+	if err != nil {
+		return fmt.Errorf("failed to get latest snapshot: %w", err)
+	}
+
+	// TODO: handle case where data is empty or missing
+
+	dataBytes, err := os.ReadFile(latest)
+	if err != nil {
+		return fmt.Errorf("failed to read snapshot %s: %w", latest, err)
+	}
+
+	var loadedData litetable.Data
+	if err := json.Unmarshal(dataBytes, &loadedData); err != nil {
+		return fmt.Errorf("failed to parse snapshot %s: %w", latest, err)
+	}
+
+	// Distribute data to shards concurrently, this is a blocking operation and will take some time
+	// based on the size of the data set, the number of shards and the number of logical CPU cores
+	// available on the system.
+	if err = m.distributeDataToShards(loadedData); err != nil {
+		return fmt.Errorf("failed to distribute data to shards: %w", err)
+	}
+
+	log.Debug().Str("duration", time.Since(start).String()).Msg("Data loaded from backup")
 	return nil
 }
 
@@ -64,36 +91,6 @@ func (m *Manager) getLatestBackup() (string, error) {
 	}
 
 	return latest, nil
-}
-
-// loadFromLatestBackup loads the latest backup file into the data cache.
-func (m *Manager) loadFromLatestBackup() error {
-	start := time.Now()
-	latest, err := m.getLatestBackup()
-	if err != nil {
-		return fmt.Errorf("failed to get latest snapshot: %w", err)
-	}
-
-	if latest == "" {
-		// No snapshot files found; initialize with empty data
-		m.data = make(litetable.Data)
-		return nil
-	}
-
-	dataBytes, err := os.ReadFile(latest)
-	if err != nil {
-		return fmt.Errorf("failed to read snapshot %s: %w", latest, err)
-	}
-
-	var loadedData litetable.Data
-	if err := json.Unmarshal(dataBytes, &loadedData); err != nil {
-		return fmt.Errorf("failed to parse snapshot %s: %w", latest, err)
-	}
-
-	m.data = loadedData
-
-	log.Debug().Str("duration", time.Since(start).String()).Msg("Data loaded from backup")
-	return nil
 }
 
 // maintainSnapshotLimit checks the number of snapshot files in the directory and prunes the oldest

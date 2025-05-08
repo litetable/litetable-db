@@ -1,4 +1,4 @@
-package storage
+package shard_storage
 
 import (
 	"fmt"

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/reaper"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,82 +18,10 @@ func (m *Manager) delete(query []byte) error {
 		return err
 	}
 
-	data := m.storage.GetData()
-
-	// Check if the row exists
-	row, exists := (*data)[parsed.rowKey]
-	if !exists {
-		return fmt.Errorf("row not found: %s", parsed.rowKey)
+	err = m.shardStorage.Delete(parsed.rowKey, parsed.family, parsed.qualifiers, parsed.timestamp, &parsed.expiresAt)
+	if err != nil {
+		return err
 	}
-
-	// BigTable-like approach: Add tombstone markers
-	modifiedFamilies := make(map[string]bool)
-
-	// if a delete mutation comes without a family, the operation will apply a tombstone
-	// to all qualifiers in every family.
-	if parsed.family == "" {
-		// Mark the entire row for deletion by adding tombstones to all qualifiers
-		for familyName, family := range row {
-			for qualifier := range family {
-				m.addTombstone(
-					row,
-					parsed.rowKey,
-					familyName,
-					qualifier,
-					parsed.timestamp,
-					parsed.expiresAt)
-			}
-			modifiedFamilies[familyName] = true
-		}
-	} else {
-		// if the family is specified, we will only append tombstones based on if qualifiers
-		// are provided
-		family, exists := row[parsed.family]
-		if !exists {
-			return fmt.Errorf("family not found: %s", parsed.family)
-		}
-
-		// if a family is provided without qualifiers, we mark the entire family for GC
-		if len(parsed.qualifiers) == 0 {
-			// Mark entire family for deletion
-			for qualifier := range family {
-				m.addTombstone(
-					row,
-					parsed.rowKey,
-					parsed.family,
-					qualifier,
-					parsed.timestamp,
-					parsed.expiresAt)
-			}
-		} else {
-			// otherwise, we should only apply tombstones to the qualifiers that are provided
-			for _, qualifier := range parsed.qualifiers {
-				if _, exists := family[qualifier]; exists {
-					m.addTombstone(
-						row,
-						parsed.rowKey,
-						parsed.family,
-						qualifier,
-						parsed.timestamp,
-						parsed.expiresAt)
-				}
-			}
-		}
-		modifiedFamilies[parsed.family] = true
-	}
-
-	// report a changed row
-	m.storage.MarkRowChanged(parsed.family, parsed.rowKey)
-
-	// if we've made it this far, send the deleted data for garbage collection
-	m.garbageCollector.Reap(&reaper.ReapParams{
-		RowKey:     parsed.rowKey,
-		Family:     parsed.family,
-		Qualifiers: parsed.qualifiers,
-		Timestamp:  parsed.timestamp,
-		ExpiresAt:  parsed.expiresAt,
-	})
-
 	return nil
 }
 

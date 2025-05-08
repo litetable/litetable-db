@@ -8,10 +8,10 @@ import (
 	"github.com/litetable/litetable-db/internal/config"
 	"github.com/litetable/litetable-db/internal/engine"
 	"github.com/litetable/litetable-db/internal/operations"
-	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/server"
-	"github.com/litetable/litetable-db/internal/storage"
-	"github.com/litetable/litetable-db/internal/storage/wal"
+	"github.com/litetable/litetable-db/internal/shard_storage"
+
+	"github.com/litetable/litetable-db/internal/shard_storage/wal"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
@@ -67,37 +67,6 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 
-	// create a disk storage manager
-	diskStorage, err := storage.New(&storage.Config{
-		RootDir:          certDir,
-		FlushThreshold:   cfg.BackupTimer,
-		SnapshotTimer:    cfg.SnapshotTimer,
-		MaxSnapshotLimit: cfg.MaxSnapshotLimit,
-	})
-	if err != nil {
-		return nil, err
-	}
-	deps = append(deps, diskStorage)
-
-	// create a new Reaper (aka Garbage Collector)
-	reaperGC, err := reaper.New(&reaper.Config{
-		Storage:    diskStorage,
-		GCInterval: cfg.GarbageCollectionTimer,
-		Path:       certDir,
-	})
-	if err != nil {
-		return nil, err
-	}
-	deps = append(deps, reaperGC)
-
-	// create the WAL manager
-	walManager, err := wal.New(&wal.Config{
-		Path: certDir,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	cdcEmitter, err := cdc_emitter.New(&cdc_emitter.Config{
 		Port:    32496, // all CDC events will be sent to this port
 		Address: cfg.ServerAddress,
@@ -107,14 +76,32 @@ func initialize() (*app.App, error) {
 	}
 	deps = append(deps, cdcEmitter)
 
-	// Operations is the package that interacts with the LiteTable Data.
-	// It decides how to read and write
-	// data to disk storage and decides when to call the reaper.
+	// create the WAL manager
+	walManager, err := wal.New(&wal.Config{
+		Path: certDir,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// create a shard manager
+	shardManager, garbageCollector, err := shard_storage.New(&shard_storage.Config{
+		RootDir:          certDir,
+		FlushThreshold:   cfg.BackupTimer,
+		SnapshotTimer:    cfg.SnapshotTimer,
+		MaxSnapshotLimit: cfg.MaxSnapshotLimit,
+		ShardCount:       8,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	deps = append(deps, shardManager, garbageCollector)
+
 	opsManager, err := operations.New(&operations.Config{
-		GarbageCollector: reaperGC,
-		WAL:              walManager,
-		Storage:          diskStorage,
-		CDC:              cdcEmitter,
+		WAL:          walManager,
+		ShardStorage: shardManager,
+		CDC:          cdcEmitter,
 	})
 	if err != nil {
 		return nil, err

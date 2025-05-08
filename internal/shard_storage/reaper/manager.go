@@ -16,19 +16,18 @@ const (
 )
 
 type storage interface {
-	GetData() *litetable.Data
-	RWLock() // The Reaper needs control to lock and unlock the data source
-	RWUnlock()
+	GetRowByFamily(key, family string) (*litetable.Data, bool)
+	DeleteExpiredTombstones(rowKey, family string, qualifiers []string, timestamp time.Time) bool
 	MarkRowChanged(family, rowKey string)
 }
 
 type Reaper struct {
 	filePath  string
 	collector chan ReapParams
-	storage   storage
 
-	mutex        sync.Mutex
-	reapInterval time.Duration
+	storageManager storage
+	mutex          sync.Mutex
+	reapInterval   time.Duration
 
 	procCtx context.Context
 	cancel  context.CancelFunc
@@ -65,13 +64,13 @@ func New(cfg *Config) (*Reaper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Reaper{
-		filePath:     filePath,
-		collector:    make(chan ReapParams, 10000),
-		storage:      cfg.Storage,
-		reapInterval: time.Duration(cfg.GCInterval) * time.Second,
-		mutex:        sync.Mutex{},
-		procCtx:      ctx,
-		cancel:       cancel,
+		filePath:       filePath,
+		collector:      make(chan ReapParams, 10000),
+		storageManager: cfg.Storage,
+		reapInterval:   time.Duration(cfg.GCInterval) * time.Second,
+		mutex:          sync.Mutex{},
+		procCtx:        ctx,
+		cancel:         cancel,
 	}, nil
 }
 
