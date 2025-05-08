@@ -10,7 +10,7 @@ import (
 
 // GetRowByFamily returns the data attached to a row key and family: this would be a
 // litetable.VersionedQualifier.
-func (m *Manager) GetRowByFamily(key, family string) (*litetable.VersionedQualifier, bool) {
+func (m *Manager) GetRowByFamily(key, family string) (*litetable.Data, bool) {
 	// find the shard index
 	shardKey := m.getShardIndex(key)
 
@@ -26,17 +26,25 @@ func (m *Manager) GetRowByFamily(key, family string) (*litetable.VersionedQualif
 		return nil, false
 	}
 
-	r := make(litetable.VersionedQualifier)
-
 	// Check if the family exists
-	r, exists = row[family]
+	fam, exists := row[family]
 	if !exists {
 		return nil, false
 	}
 
 	log.Debug().Msgf("found row %s in shard %d", key, shardKey)
-	// return the row
-	return &r, true
+
+	// Create result structure
+	result := make(litetable.Data)
+	result[key] = make(map[string]litetable.VersionedQualifier)
+	result[key][family] = make(litetable.VersionedQualifier)
+
+	// Copy qualifier data to result
+	for qualifier, values := range fam {
+		result[key][family][qualifier] = values
+	}
+
+	return &result, true
 }
 
 // FilterRowsByPrefix has to query all shards to find all rows that match the data. Prefix queries

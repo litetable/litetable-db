@@ -27,51 +27,38 @@ func (m *Manager) write(query []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// Validate the family is allowed
-	if !m.storage.IsFamilyAllowed(parsed.family) {
-		return nil, fmt.Errorf("column family not allowed: %s", parsed.family)
-	}
-
-	data := m.storage.GetData()
-
-	// Ensure the row exists
-	if _, exists := (*data)[parsed.rowKey]; !exists {
-		(*data)[parsed.rowKey] = make(map[string]litetable.VersionedQualifier)
-	}
-
-	// Ensure the family exists
-	if _, exists := (*data)[parsed.rowKey][parsed.family]; !exists {
-		(*data)[parsed.rowKey][parsed.family] = make(litetable.VersionedQualifier)
+	// Use the shard_storage Apply method to write data
+	err = m.shardStorage.Apply(
+		parsed.rowKey,
+		parsed.family,
+		parsed.qualifiers,
+		parsed.values,
+		parsed.timestamp,
+		parsed.expiresAt,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	// Write all qualifier-value pairs with the same timestamp
-	for i, qualifier := range parsed.qualifiers {
-		value := parsed.values[i]
-
+	for i := range parsed.qualifiers {
 		newRow := litetable.TimestampedValue{
-			Value:     value,
+			Value:     parsed.values[i],
 			Timestamp: parsed.timestamp,
 		}
 
-		// if we have an expiration time, write the time for all qualifier-value pairs
 		if parsed.expiresAt != nil {
 			newRow.IsTombstone = true
 			newRow.ExpiresAt = *parsed.expiresAt
 		}
 
-		(*data)[parsed.rowKey][parsed.family][qualifier] = append(
-			(*data)[parsed.rowKey][parsed.family][qualifier], newRow,
-		)
-
-		// Emit CDC event with the writeQuery details.
 		m.cdc.Emit(&cdc_emitter.CDCParams{
 			Operation: litetable.OperationWrite,
 			RowKey:    parsed.rowKey,
 			Column:    newRow,
 		})
 
-		// we need to do a double != nil checks because we don't want to send for garbage
-		// collection before the data is saved.
+		// Handle garbage collection if needed
 		if parsed.expiresAt != nil {
 			log.Debug().Msg("calling reaper on write operation")
 			m.garbageCollector.Reap(&reaper.ReapParams{

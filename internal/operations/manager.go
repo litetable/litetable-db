@@ -6,6 +6,7 @@ import (
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/reaper"
 	"github.com/litetable/litetable-db/internal/storage/wal"
+	"time"
 )
 
 //go:generate mockgen -destination=manager_mock.go -package=operations -source=manager.go
@@ -26,10 +27,14 @@ type storageManager interface {
 }
 
 type shardManager interface {
-	GetRowByFamily(key, family string) (*litetable.VersionedQualifier, bool)
+	GetRowByFamily(key, family string) (*litetable.Data, bool)
 	FilterRowsByPrefix(prefix string) (*litetable.Data, bool)
 	FilterRowsByRegex(regex string) (*litetable.Data, bool)
 	IsFamilyAllowed(family string) bool
+
+	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time, expiresAt *time.Time) error
+	Delete(key, family string, qualifiers []string, timestamp time.Time,
+		expiresAt *time.Time) error
 }
 
 type cdc interface {

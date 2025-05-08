@@ -35,7 +35,9 @@ type shardManager interface {
 	FilterRowsByRegex(regex string) (*litetable.Data, bool)
 	IsFamilyAllowed(family string) bool
 
-	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time) error
+	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time, expiresAt *time.Time) error
+	Delete(key, family string, qualifiers []string, timestamp time.Time,
+		expiresAt *time.Time) error
 }
 
 // shard is a manager for a single shard of in-memory litetable.Data.

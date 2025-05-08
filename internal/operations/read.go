@@ -51,26 +51,25 @@ func (m *Manager) read(query []byte) ([]byte, error) {
 		}
 
 		return json.Marshal(result)
-
 	}
 
 	// default to read by rowKey:
-	qualifiers, exists := m.shardStorage.GetRowByFamily(parsed.rowKey, parsed.family)
+	data, exists := m.shardStorage.GetRowByFamily(parsed.rowKey, parsed.family)
 	if !exists {
 		return nil, fmt.Errorf("row not found: %s", parsed.rowKey)
 	}
 
 	// Create a proper Row structure with the data
-	result := map[string]*litetable.Row{
-		parsed.rowKey: {
-			Key: parsed.rowKey,
-			Columns: map[string]litetable.VersionedQualifier{
-				parsed.family: *qualifiers,
-			},
-		},
+	row, err := parsed.readRowKey(data)
+	if err != nil {
+		return nil, err
 	}
 
-	return json.Marshal(result)
+	r := map[string]*litetable.Row{
+		row.Key: row,
+	}
+
+	return json.Marshal(r)
 }
 
 // readQuery are the parameters for any supported read query
