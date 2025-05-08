@@ -25,6 +25,13 @@ type storageManager interface {
 	MarkRowChanged(family, rowKey string)
 }
 
+type shardManager interface {
+	GetRowByFamily(key, family string) (*litetable.VersionedQualifier, bool)
+	FilterRowsByPrefix(prefix string) (*litetable.Data, bool)
+	FilterRowsByRegex(regex string) (*litetable.Data, bool)
+	IsFamilyAllowed(family string) bool
+}
+
 type cdc interface {
 	Emit(params *cdc_emitter.CDCParams)
 }
@@ -34,6 +41,7 @@ type Manager struct {
 	writeAhead       writeAhead
 	defaultTTL       int64
 	storage          storageManager
+	shardStorage     shardManager
 	cdc              cdc
 	isHealthy        bool
 }
@@ -42,6 +50,7 @@ type Config struct {
 	GarbageCollector garbageCollector
 	WAL              writeAhead
 	Storage          storageManager
+	ShardStorage     shardManager
 	CDC              cdc
 }
 
@@ -55,6 +64,9 @@ func (c *Config) validate() error {
 	}
 	if c.Storage == nil {
 		errGrp = append(errGrp, errors.New("storage cannot be nil"))
+	}
+	if c.ShardStorage == nil {
+		errGrp = append(errGrp, errors.New("shard storage cannot be nil"))
 	}
 	if c.CDC == nil {
 		errGrp = append(errGrp, errors.New("CDC emitter cannot be nil"))
@@ -73,6 +85,7 @@ func New(cfg *Config) (*Manager, error) {
 		writeAhead:       cfg.WAL,
 		defaultTTL:       3600, // configure default for 1 hour
 		storage:          cfg.Storage,
+		shardStorage:     cfg.ShardStorage,
 		cdc:              cfg.CDC,
 		isHealthy:        true,
 	}, nil

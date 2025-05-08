@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/rs/zerolog/log"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -110,6 +111,8 @@ func New(cfg *Config) (*Manager, error) {
 		cfg.ShardCount = defaultShardCount
 	}
 
+	log.Debug().Int("shard_count", cfg.ShardCount).Msg("Shard count")
+
 	m := &Manager{
 		rootDir:          cfg.RootDir,
 		dataDir:          backupDir,
@@ -124,7 +127,7 @@ func New(cfg *Config) (*Manager, error) {
 		procCtx:          ctx,
 		ctxCancel:        cancel,
 
-		shardCount: defaultShardCount,
+		shardCount: cfg.ShardCount,
 	}
 
 	// load any existing column families
@@ -134,8 +137,7 @@ func New(cfg *Config) (*Manager, error) {
 
 	// create the shards
 	shards, err := initializeDataShards(&shardConfig{
-		count:           cfg.ShardCount,
-		allowedFamilies: m.allowedFamilies,
+		count: m.shardCount,
 	})
 	if err != nil {
 		return nil, err
@@ -178,11 +180,21 @@ func (m *Manager) Name() string {
 	return "Shard Storage"
 }
 
-// GetData Provides access to the data
-func (m *Manager) GetData() *litetable.Data {
+func (m *Manager) IsFamilyAllowed(family string) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	return &m.data
+
+	// If no allowed families are defined, don't allow any
+	if len(m.allowedFamilies) == 0 {
+		return false
+	}
+
+	for _, f := range m.allowedFamilies {
+		if f == family {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Manager) FamilyLockFile() string {
@@ -312,6 +324,8 @@ func (m *Manager) distributeDataToShards(loadedData litetable.Data) error {
 				m.shardMap[shardIdx].mutex.Lock()
 				m.shardMap[shardIdx].data[item.key] = item.families
 				m.shardMap[shardIdx].mutex.Unlock()
+
+				log.Debug().Str("row_key", item.key).Int("shard_index", shardIdx).Msg("Distributing data to shard")
 			}
 		}()
 	}
@@ -334,4 +348,20 @@ func (m *Manager) distributeDataToShards(loadedData litetable.Data) error {
 	}
 
 	return nil
+}
+
+// getShardIndex determines which shard a particular row key belongs to.
+// It uses a consistent hashing approach to distribute keys evenly across shards.
+func (m *Manager) getShardIndex(rowKey string) int {
+	if m.shardCount <= 0 {
+		return 0
+	}
+
+	// Use FNV-1a hash algorithm for distributing keys
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(rowKey))
+	hash := h.Sum32()
+
+	// Modulo to get shard index within range
+	return int(hash % uint32(m.shardCount))
 }

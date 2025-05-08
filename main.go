@@ -81,7 +81,7 @@ func initialize() (*app.App, error) {
 	}
 
 	deps = append(deps, shardManager)
-	
+
 	// create a disk storage manager
 	diskStorage, err := storage.New(&storage.Config{
 		RootDir:          certDir,
@@ -129,6 +129,7 @@ func initialize() (*app.App, error) {
 		GarbageCollector: reaperGC,
 		WAL:              walManager,
 		Storage:          diskStorage,
+		ShardStorage:     shardManager,
 		CDC:              cdcEmitter,
 	})
 	if err != nil {

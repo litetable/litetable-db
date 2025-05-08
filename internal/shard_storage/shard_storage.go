@@ -22,19 +22,26 @@ package shard_storage
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"hash/fnv"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+// shardManager defines the operations a ShardManager can perform
+type shardManager interface {
+	GetRowByFamily(key, family string) (*litetable.VersionedQualifier, bool)
+	FilterRowsByPrefix(prefix string) (*litetable.Data, bool)
+	FilterRowsByRegex(regex string) (*litetable.Data, bool)
+	IsFamilyAllowed(family string) bool
+
+	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time) error
+}
+
 // shard is a manager for a single shard of in-memory litetable.Data.
 type shard struct {
 	data  litetable.Data
 	mutex sync.RWMutex
-
-	allowedFamilies []string // Maps family names to allowed columns
 
 	// there should always be some degree of randomness to the backup timer to prevent all shards
 	// backing up in the same timeframe.
@@ -49,8 +56,7 @@ type shard struct {
 }
 
 type shardConfig struct {
-	count           int
-	allowedFamilies []string
+	count int
 }
 
 // initializeDataShards creates and initializes new shards based on the provided configuration.
@@ -64,10 +70,9 @@ func initializeDataShards(cfg *shardConfig) ([]*shard, error) {
 	for i := 0; i < cfg.count; i++ {
 		// Create a new shard with default values
 		shards[i] = &shard{
-			data:            make(litetable.Data),
-			mutex:           sync.RWMutex{},
-			allowedFamilies: cfg.allowedFamilies,
-			changedRows:     make(map[string]map[string]struct{}),
+			data:        make(litetable.Data),
+			mutex:       sync.RWMutex{},
+			changedRows: make(map[string]map[string]struct{}),
 
 			// Add small random jitter to backup timers to prevent all shards
 			// from backing up simultaneously (between 0-500ms)
@@ -78,22 +83,20 @@ func initializeDataShards(cfg *shardConfig) ([]*shard, error) {
 	return shards, nil
 }
 
-// getShardIndex determines which shard a particular row key belongs to.
-// It uses a consistent hashing approach to distribute keys evenly across shards.
-func (m *Manager) getShardIndex(rowKey string) int {
-	if m.shardCount <= 0 {
-		return 0
-	}
-
-	// Use FNV-1a hash algorithm for distributing keys
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(rowKey))
-	hash := h.Sum32()
-
-	// Modulo to get shard index within range
-	return int(hash % uint32(m.shardCount))
-}
-
 func (s *shard) setInitialized() {
 	s.initialized.Store(true)
+}
+
+func (s *shard) Lock() {
+	s.mutex.Lock()
+}
+func (s *shard) Unlock() {
+	s.mutex.Unlock()
+}
+
+func (s *shard) RLock() {
+	s.mutex.RLock()
+}
+func (s *shard) RUnlock() {
+	s.mutex.RUnlock()
 }
