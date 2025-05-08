@@ -787,10 +787,26 @@ func Test_read(t *testing.T) {
 			}
 
 			if tc.getData {
-				mockStorage.
-					EXPECT().
-					GetRowByFamily(gomock.Any(), gomock.Any()).
-					Return(tc.mockData)
+				// Handle different query types
+				if strings.Contains(string(tc.query), "key=") {
+					// For direct key lookup
+					mockStorage.
+						EXPECT().
+						GetRowByFamily(gomock.Any(), gomock.Any()).
+						Return(tc.mockData, true)
+				} else if strings.Contains(string(tc.query), "prefix=") {
+					// For prefix search
+					mockStorage.
+						EXPECT().
+						FilterRowsByPrefix(gomock.Any()).
+						Return(tc.mockData, len(*tc.mockData) > 0)
+				} else if strings.Contains(string(tc.query), "regex=") {
+					// For regex search
+					mockStorage.
+						EXPECT().
+						FilterRowsByRegex(gomock.Any()).
+						Return(tc.mockData, len(*tc.mockData) > 0)
+				}
 			}
 
 			m := &Manager{
@@ -804,7 +820,6 @@ func Test_read(t *testing.T) {
 				req.NoError(err)
 				req.NotNil(got)
 			}
-
 		})
 	}
 }
