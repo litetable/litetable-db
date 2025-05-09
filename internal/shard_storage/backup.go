@@ -48,6 +48,10 @@ func (m *Manager) loadFromLatestBackup() error {
 	}
 
 	// TODO: handle case where data is empty or missing
+	if latest == "" {
+		log.Debug().Msg("No snapshots found, nothing to load")
+		return nil
+	}
 
 	dataBytes, err := os.ReadFile(latest)
 	if err != nil {
