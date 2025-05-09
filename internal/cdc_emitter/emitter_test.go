@@ -21,11 +21,9 @@ func TestManager_Emit(t *testing.T) {
 	params := &CDCParams{}
 	m.Emit(params)
 
-	select {
-	case emitted := <-m.emitChan:
-		if emitted != params {
-			t.Errorf("Expected emitted params to be %v, got %v", params, emitted)
-		}
+	emitted := <-m.emitChan
+	if emitted != params {
+		t.Errorf("Expected emitted params to be %v, got %v", params, emitted)
 	}
 
 	close(m.emitChan)

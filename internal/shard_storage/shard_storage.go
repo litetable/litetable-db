@@ -28,18 +28,6 @@ import (
 	"time"
 )
 
-// shardManager defines the operations a ShardManager can perform
-type shardManager interface {
-	GetRowByFamily(key, family string) (*litetable.VersionedQualifier, bool)
-	FilterRowsByPrefix(prefix string) (*litetable.Data, bool)
-	FilterRowsByRegex(regex string) (*litetable.Data, bool)
-	IsFamilyAllowed(family string) bool
-
-	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time, expiresAt *time.Time) error
-	Delete(key, family string, qualifiers []string, timestamp time.Time,
-		expiresAt *time.Time) error
-}
-
 // shard is a manager for a single shard of in-memory litetable.Data.
 type shard struct {
 	data  litetable.Data
@@ -47,8 +35,7 @@ type shard struct {
 
 	// there should always be some degree of randomness to the backup timer to prevent all shards
 	// backing up in the same timeframe.
-	backupTimer      time.Duration
-	maxSnapshotLimit int
+	backupTimer time.Duration
 
 	// each shard must monitor their own changes for the snapshot
 	changedRows map[string]map[string]struct{} // initialized when first row is marked

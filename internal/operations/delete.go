@@ -2,9 +2,6 @@ package operations
 
 import (
 	"fmt"
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
-	"github.com/litetable/litetable-db/internal/litetable"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,44 +20,6 @@ func (m *Manager) delete(query []byte) error {
 		return err
 	}
 	return nil
-}
-
-// addTombstone adds a tombstone marker for a cell at the passed in timestamp.
-// expiresAt is a time that is configured within the Litetable configuration, but
-// can be overridden with a provided TTL.
-func (m *Manager) addTombstone(
-	row map[string]litetable.VersionedQualifier,
-	rowKey string,
-	family,
-	qualifier string,
-	timestamp time.Time,
-	expiresAt *time.Time,
-) {
-	values := row[family][qualifier]
-
-	tombstone := litetable.TimestampedValue{
-		Value:       nil,
-		Timestamp:   timestamp,
-		IsTombstone: true,
-		ExpiresAt:   expiresAt,
-	}
-
-	// Insert the tombstone
-	values = append(values, tombstone)
-
-	// Sort versions descending by Timestamp
-	sort.Slice(values, func(i, j int) bool {
-		return values[i].Timestamp.After(values[j].Timestamp)
-	})
-
-	// we are iterating on the actual memory map here.
-	row[family][qualifier] = values
-
-	m.cdc.Emit(&cdc_emitter.CDCParams{
-		Operation: litetable.OperationDelete,
-		RowKey:    rowKey,
-		Column:    tombstone,
-	})
 }
 
 type deleteQuery struct {

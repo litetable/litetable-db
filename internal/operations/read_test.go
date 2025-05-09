@@ -402,7 +402,7 @@ func Test_readRowKey(t *testing.T) {
 
 				// if the latest is > 0 the columns should equal that number
 				if tc.rq.latest > 0 {
-					for qual, _ := range row.Columns[tc.rq.family] {
+					for qual := range row.Columns[tc.rq.family] {
 						req.Equal(len(row.Columns[tc.rq.family][qual]), tc.rq.latest)
 					}
 				} else {

@@ -51,7 +51,6 @@ type Manager struct {
 	// create a house for the snapshot process
 	changedRows               map[string]map[string]struct{} // initialized when first row is marked
 	snapshotTimer             time.Duration
-	lastSnapshotTime          time.Time
 	lastPartialSnapshotTime   time.Time
 	latestPartialSnapshotFile string
 	snapshotDir               string
