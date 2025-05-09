@@ -2,6 +2,7 @@ package shard_storage
 
 import (
 	"fmt"
+	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
@@ -36,6 +37,7 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp time
 				// add tombstone markers to all qualifiers
 				m.addTombstone(
 					row,
+					key,
 					familyName,
 					q,
 					timestamp,
@@ -62,6 +64,7 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp time
 				fmt.Println("Adding tombstone to qualifier:", q, family)
 				m.addTombstone(
 					row,
+					key,
 					family,
 					q,
 					timestamp,
@@ -75,6 +78,7 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp time
 				fmt.Println("Adding tombstone to qualifier:", q, family)
 				m.addTombstone(
 					row,
+					key,
 					family,
 					q,
 					timestamp,
@@ -103,6 +107,7 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp time
 // can be overridden with a provided TTL.
 func (m *Manager) addTombstone(
 	row map[string]litetable.VersionedQualifier,
+	key,
 	family,
 	qualifier string,
 	timestamp time.Time,
@@ -114,7 +119,7 @@ func (m *Manager) addTombstone(
 		Value:       nil,
 		Timestamp:   timestamp,
 		IsTombstone: true,
-		ExpiresAt:   *expiresAt,
+		ExpiresAt:   expiresAt,
 	}
 
 	// Insert the tombstone
@@ -128,11 +133,13 @@ func (m *Manager) addTombstone(
 	// we are iterating on the actual memory map here.
 	row[family][qualifier] = values
 
-	// m.cdc.Emit(&cdc_emitter.CDCParams{
-	// 	Operation: litetable.OperationDelete,
-	// 	RowKey:    rowKey,
-	// 	Column:    tombstone,
-	// })
+	m.cdc.Emit(&cdc_emitter.CDCParams{
+		Operation: litetable.OperationDelete,
+		RowKey:    key,
+		Family:    family,
+		Qualifier: qualifier,
+		Column:    tombstone,
+	})
 }
 
 // DeleteExpiredTombstones removes expired tombstones and returns true if changes were made

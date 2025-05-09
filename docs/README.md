@@ -20,7 +20,7 @@ and other systems such as Valkey and Prometheus, to name a few.
 - **Garbage Collection**: Flexible delete options allow for automatic expiration and cleanup.
 - **CDC Support**: Change Data Capture support for real-time data streaming and 
   integration with other systems.
-- **Configurable Backup** Easily configure backup and restore options for data protection.
+- **Configurable Backup** Configure backup and restore options for data protection.
 ---
 ## Quick Start
 

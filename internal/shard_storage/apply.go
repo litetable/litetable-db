@@ -2,6 +2,7 @@ package shard_storage
 
 import (
 	"fmt"
+	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
@@ -49,23 +50,23 @@ func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]b
 		// If we have an expiration time, mark as tombstone
 		if expiresAt != nil {
 			newValue.IsTombstone = true
-			newValue.ExpiresAt = *expiresAt
+			newValue.ExpiresAt = expiresAt
 		}
 
 		s.data[rowKey][family][qualifier] = append(
 			s.data[rowKey][family][qualifier], newValue,
 		)
-		// TODO: emit the change on the shard
-		// Emit CDC event for each qualifier update
-		// if m.cdc != nil {
-		// 	m.cdc.Emit(&cdc_emitter.CDCParams{
-		// 		Operation: litetable.OperationWrite,
-		// 		RowKey:    rowKey,
-		// 		Family:    family,
-		// 		Qualifier: qualifier,
-		// 		Column:    newValue,
-		// 	})
-		// }
+
+		// Emit CDC event for each qualifier
+		if m.cdc != nil {
+			m.cdc.Emit(&cdc_emitter.CDCParams{
+				Operation: litetable.OperationWrite,
+				RowKey:    rowKey,
+				Family:    family,
+				Qualifier: qualifier,
+				Column:    newValue,
+			})
+		}
 	}
 
 	// Handle garbage collection if an expiresAt time is passed

@@ -91,6 +91,7 @@ func initialize() (*app.App, error) {
 		SnapshotTimer:    cfg.SnapshotTimer,
 		MaxSnapshotLimit: cfg.MaxSnapshotLimit,
 		ShardCount:       8,
+		CDCEmitter:       cdcEmitter,
 	})
 	if err != nil {
 		return nil, err

@@ -18,7 +18,7 @@ func (m *Manager) delete(query []byte) error {
 		return err
 	}
 
-	err = m.shardStorage.Delete(parsed.rowKey, parsed.family, parsed.qualifiers, parsed.timestamp, &parsed.expiresAt)
+	err = m.shardStorage.Delete(parsed.rowKey, parsed.family, parsed.qualifiers, parsed.timestamp, parsed.expiresAt)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (m *Manager) addTombstone(
 	family,
 	qualifier string,
 	timestamp time.Time,
-	expiresAt time.Time,
+	expiresAt *time.Time,
 ) {
 	values := row[family][qualifier]
 
@@ -69,17 +69,18 @@ type deleteQuery struct {
 	qualifiers []string
 	timestamp  time.Time // this is either the current time or the provided timestamp
 	ttl        time.Duration
-	expiresAt  time.Time
+	expiresAt  *time.Time
 }
 
 func parseDeleteQuery(input string) (*deleteQuery, error) {
 	parts := strings.Fields(input)
 	now := time.Now()
+	defaultExpiresAt := now.Add(time.Hour)
 	parsed := &deleteQuery{
 		qualifiers: []string{},
 		ttl:        time.Duration(3600) * time.Second,
 		timestamp:  now,
-		expiresAt:  now.Add(time.Hour),
+		expiresAt:  &defaultExpiresAt,
 	}
 
 	for _, part := range parts {
@@ -117,7 +118,8 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 
 	// if TTL was provided, calculate the expiresAt time based on timestamp
 	if parsed.ttl > 0 {
-		parsed.expiresAt = parsed.timestamp.Add(parsed.ttl)
+		ttlTime := parsed.timestamp.Add(parsed.ttl)
+		parsed.expiresAt = &ttlTime
 	}
 
 	// Validate required fields

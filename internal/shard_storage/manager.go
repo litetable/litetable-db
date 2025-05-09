@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
@@ -14,6 +15,10 @@ import (
 	"sync"
 	"time"
 )
+
+type cdc interface {
+	Emit(params *cdc_emitter.CDCParams)
+}
 
 type garbageCollector interface {
 	Reap(p *reaper.ReapParams)
@@ -54,6 +59,8 @@ type Manager struct {
 	// garbage collection
 	reaper garbageCollector
 
+	cdc cdc
+
 	procCtx   context.Context
 	ctxCancel context.CancelFunc
 
@@ -68,6 +75,7 @@ type Config struct {
 	SnapshotTimer    int
 	MaxSnapshotLimit int
 	ShardCount       int
+	CDCEmitter       cdc
 }
 
 func (c *Config) validate() error {
@@ -91,6 +99,10 @@ func (c *Config) validate() error {
 
 	if c.ShardCount < 0 || c.ShardCount > 50 {
 		errGrp = append(errGrp, fmt.Errorf("shard count must be between 1 and 50"))
+	}
+
+	if c.CDCEmitter == nil {
+		errGrp = append(errGrp, fmt.Errorf("CDC emitter is required"))
 	}
 	return errors.Join(errGrp...)
 }
@@ -133,6 +145,7 @@ func New(cfg *Config) (*Manager, *reaper.Reaper, error) {
 		ctxCancel:        cancel,
 
 		shardCount: cfg.ShardCount,
+		cdc:        cfg.CDCEmitter,
 	}
 
 	// load any existing column families

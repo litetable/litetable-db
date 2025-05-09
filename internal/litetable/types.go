@@ -23,10 +23,10 @@ const (
 
 // TimestampedValue stores a value with its timestamp
 type TimestampedValue struct {
-	Value       []byte    `json:"value"`
-	Timestamp   time.Time `json:"timestamp"`
-	IsTombstone bool      `json:"tombstone,omitempty"` // if the value is slated for deletion
-	ExpiresAt   time.Time `json:"expiresAt,omitempty"` // the time in which the value will expire
+	Value       []byte     `json:"value"`
+	Timestamp   time.Time  `json:"timestamp"`
+	IsTombstone bool       `json:"tombstone,omitempty"` // if the value is slated for deletion
+	ExpiresAt   *time.Time `json:"expiresAt,omitempty"` // the time in which the value will expire
 }
 
 // VersionedQualifier maps qualifiers to their timestamped values
