@@ -615,6 +615,7 @@ func (x *WriteRequest) GetQualifiers() []*ColumnQualifier {
 	return nil
 }
 
+// DeleteRequest is the contract for litetable deletes.
 type DeleteRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
