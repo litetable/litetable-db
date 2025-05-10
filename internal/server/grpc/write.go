@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"github.com/litetable/litetable-db/pkg/proto"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"net/url"
+	"time"
 )
 
 func (l *litetable) validateWrite(msg *proto.WriteRequest) error {
@@ -28,7 +30,8 @@ func (l *litetable) Write(ctx context.Context, msg *proto.WriteRequest) (*proto.
 	if err := l.validateWrite(msg); err != nil {
 		return nil, err
 	}
-
+	now := time.Now()
+	log.Debug().Msgf("Write request: %v", msg)
 	// Ex: WRITE family="family" rowKey="rowKey" qualifier="qualifier" value="value"
 	queryStr := "family=" + msg.GetFamily()
 	queryStr += " key=" + msg.GetRowKey()
@@ -45,5 +48,7 @@ func (l *litetable) Write(ctx context.Context, msg *proto.WriteRequest) (*proto.
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to write data: %v", err)
 	}
+
+	log.Debug().Msgf("Write latest: %v", time.Since(now))
 	return convertToProtoData(result), nil
 }

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/litetable/litetable-db/pkg/proto"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"time"
 )
 
 func (l *litetable) validateRead(msg *proto.ReadRequest) error {
@@ -23,6 +25,8 @@ func (l *litetable) validateRead(msg *proto.ReadRequest) error {
 
 func (l *litetable) Read(ctx context.Context, msg *proto.ReadRequest) (*proto.LitetableData,
 	error) {
+	now := time.Now()
+	log.Debug().Msgf("Read request: %v", msg)
 	if err := l.validateRead(msg); err != nil {
 		return nil, err
 	}
@@ -56,5 +60,6 @@ func (l *litetable) Read(ctx context.Context, msg *proto.ReadRequest) (*proto.Li
 		return nil, status.Errorf(codes.Internal, "failed to read data: %v", err)
 	}
 
+	log.Debug().Msgf("Read latency: %v", time.Since(now))
 	return convertToProtoData(result), nil
 }
