@@ -33,6 +33,14 @@ func (l *litetable) Read(ctx context.Context, msg *proto.ReadRequest) (*proto.Li
 		queryStr += " key=" + msg.GetRowKey()
 	}
 
+	if msg.GetQueryType() == proto.QueryType_PREFIX {
+		queryStr += " prefix=" + msg.GetRowKey()
+	}
+
+	if msg.GetQueryType() == proto.QueryType_REGEX {
+		queryStr += " regex=" + msg.GetRowKey()
+	}
+
 	if len(msg.GetQualifiers()) > 0 {
 		for _, qualifier := range msg.GetQualifiers() {
 			queryStr += " qualifier=" + qualifier
