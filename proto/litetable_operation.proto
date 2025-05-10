@@ -95,7 +95,6 @@ message WriteRequest {
   string row_key = 1;
   string family = 2;           // column family
   repeated ColumnQualifier qualifiers = 3; // specific qualifiers
-  int64 timestamp_unix = 4;   // timestamp of the write
 }
 
 // LitetableService is a gRPC service that interacts with the LiteTable server.
