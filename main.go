@@ -7,6 +7,7 @@ import (
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/config"
 	"github.com/litetable/litetable-db/internal/engine"
+	"github.com/litetable/litetable-db/internal/grpc"
 	"github.com/litetable/litetable-db/internal/operations"
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/shard_storage"
@@ -128,6 +129,16 @@ func initialize() (*app.App, error) {
 		return nil, err
 	}
 	deps = append(deps, srv)
+
+	// create the gRPC server
+	grpcServer, err := grpc.NewServer(&grpc.Config{
+		Port:       50050,
+		Operations: opsManager,
+	})
+	if err != nil {
+		return nil, err
+	}
+	deps = append(deps, grpcServer)
 
 	application, err := app.CreateApp(&app.Config{
 		ServiceName: "LiteTable DB",

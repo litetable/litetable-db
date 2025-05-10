@@ -1,9 +1,12 @@
 package grpc
 
 import (
+	"errors"
 	"fmt"
+	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/rs/zerolog/log"
 	grpc2 "google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"net"
 )
 
@@ -14,25 +17,44 @@ type Server struct {
 }
 
 type Config struct {
-	Port int
+	Port       int
+	Operations operations
+}
+
+func (c *Config) validate() error {
+	var errGrp []error
+	if c.Port == 0 {
+		errGrp = append(errGrp, fmt.Errorf("port required"))
+	}
+	if c.Operations == nil {
+		errGrp = append(errGrp, fmt.Errorf("operations required"))
+	}
+
+	return errors.Join(errGrp...)
 }
 
 // NewServer creates a new gRPC server instance
 func NewServer(cfg *Config) (*Server, error) {
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+
 	// Create a new gRPC server
 	srv := grpc2.NewServer()
 
-	// Register your gRPC services here
-	// For example:
-	// proto.RegisterYourServiceServer(srv, &YourServiceServer{})
-	// Register the server with the gRPC server
-	// proto.RegisterLitetableServiceServer(srv, &Litetable{})
+	lt := &litetable{
+		operations: cfg.Operations,
+	}
 
+	srv.RegisterService(&proto.LitetableService_ServiceDesc, lt)
+
+	reflection.Register(srv)
 	return &Server{
 		server: srv,
 		port:   cfg.Port,
 	}, nil
 }
+
 func (s *Server) Start() error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {

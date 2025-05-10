@@ -1,9 +1,10 @@
 module github.com/litetable/litetable-db
 
-go 1.24
+go 1.24.2
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/litetable/litetable-db/pkg v0.0.0-20250510012851-fbb5350855ff
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.2
@@ -19,6 +20,6 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
-	google.golang.org/protobuf v1.36.5 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
