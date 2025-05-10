@@ -10,6 +10,53 @@ import (
 	"time"
 )
 
+func (m *Manager) Write(query string) (map[string]*litetable.Row, error) {
+	// Parse the query
+	parsed, err := parseWriteQuery(query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the shard_storage Apply method to write data
+	err = m.shardStorage.Apply(
+		parsed.rowKey,
+		parsed.family,
+		parsed.qualifiers,
+		parsed.values,
+		parsed.timestamp,
+		parsed.expiresAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// The data has been saved, now let's just return what's written
+	// Create response with all written values
+	row := &litetable.Row{
+		Key:     parsed.rowKey,
+		Columns: make(map[string]litetable.VersionedQualifier),
+	}
+	row.Columns[parsed.family] = make(litetable.VersionedQualifier)
+
+	for i, qualifier := range parsed.qualifiers {
+		timestampedValue := litetable.TimestampedValue{
+			Value:     parsed.values[i],
+			Timestamp: parsed.timestamp,
+		}
+
+		// Store result
+		values := []litetable.TimestampedValue{timestampedValue}
+		row.Columns[parsed.family][qualifier] = values
+
+	}
+
+	result := map[string]*litetable.Row{
+		row.Key: row,
+	}
+
+	return result, nil
+}
+
 // Write processes a mutation to update the data store; this is an append-only operation
 //
 // When writing a row, the following condition must be true:

@@ -4,7 +4,7 @@ go 1.24.2
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/litetable/litetable-db/pkg v0.0.0-20250510024539-0fbcec47fe5e
+	github.com/litetable/litetable-db/pkg v0.0.0-20250510025119-ddbb4205be2d
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.2
