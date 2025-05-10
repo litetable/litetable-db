@@ -7,11 +7,10 @@ import (
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
 	"sort"
-	"time"
 )
 
-func (m *Manager) Delete(key, family string, qualifiers []string, timestamp time.Time,
-	expiresAt *time.Time) error {
+func (m *Manager) Delete(key, family string, qualifiers []string, timestamp int64,
+	expiresAt *int64) error {
 	// find the shard index
 	shardKey := m.getShardIndex(key)
 
@@ -110,8 +109,8 @@ func (m *Manager) addTombstone(
 	key,
 	family,
 	qualifier string,
-	timestamp time.Time,
-	expiresAt *time.Time,
+	timestamp int64,
+	expiresAt *int64,
 ) {
 	values := row[family][qualifier]
 
@@ -127,7 +126,7 @@ func (m *Manager) addTombstone(
 
 	// Sort versions descending by Timestamp
 	sort.Slice(values, func(i, j int) bool {
-		return values[i].Timestamp.After(values[j].Timestamp)
+		return values[i].Timestamp > values[j].Timestamp
 	})
 
 	// we are iterating on the actual memory map here.
@@ -143,7 +142,8 @@ func (m *Manager) addTombstone(
 }
 
 // DeleteExpiredTombstones removes expired tombstones and returns true if changes were made
-func (m *Manager) DeleteExpiredTombstones(rowKey, family string, qualifiers []string, timestamp time.Time) bool {
+func (m *Manager) DeleteExpiredTombstones(rowKey, family string, qualifiers []string,
+	timestamp int64) bool {
 	// Determine which shard this row belongs to
 	shardIdx := m.getShardIndex(rowKey)
 	sh := m.shardMap[shardIdx]
@@ -184,7 +184,7 @@ func (m *Manager) DeleteExpiredTombstones(rowKey, family string, qualifiers []st
 			var remainingValues []litetable.TimestampedValue
 			for _, entry := range values {
 				// save the relevant entries
-				if entry.Timestamp.After(timestamp) {
+				if entry.Timestamp > timestamp {
 					remainingValues = append(remainingValues, entry)
 				} else {
 					changed = true

@@ -21,9 +21,9 @@ type event struct {
 	Family      string              `json:"family"`
 	Qualifier   string              `json:"qualifier"`
 	Value       []byte              `json:"value"`
-	Timestamp   time.Time           `json:"timestamp"`
+	Timestamp   int64               `json:"timestamp"`
 	IsTombstone bool                `json:"isTombstone"`
-	ExpiresAt   *time.Time          `json:"expiresAt"`
+	ExpiresAt   *int64              `json:"expiresAt"`
 }
 
 // Emit pushes a CDC event to the channel. This is how consumers get notifier

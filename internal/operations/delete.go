@@ -7,6 +7,20 @@ import (
 	"time"
 )
 
+func (m *Manager) Delete(query string) error {
+	// Parse the query
+	parsed, err := parseDeleteQuery(query)
+	if err != nil {
+		return err
+	}
+
+	err = m.shardStorage.Delete(parsed.rowKey, parsed.family, parsed.qualifiers, parsed.timestamp, parsed.expiresAt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // delete marks data for garbage collection by placing tombstones in the column qualifier.
 func (m *Manager) delete(query []byte) error {
 	// Parse the query
@@ -26,19 +40,19 @@ type deleteQuery struct {
 	rowKey     string
 	family     string
 	qualifiers []string
-	timestamp  time.Time // this is either the current time or the provided timestamp
-	ttl        time.Duration
-	expiresAt  *time.Time
+	timestamp  int64 // this is either the current time or the provided timestamp
+	ttl        int64
+	expiresAt  *int64
 }
 
 func parseDeleteQuery(input string) (*deleteQuery, error) {
 	parts := strings.Fields(input)
 	now := time.Now()
-	defaultExpiresAt := now.Add(time.Hour)
+	defaultExpiresAt := now.Add(time.Hour).Unix()
 	parsed := &deleteQuery{
 		qualifiers: []string{},
-		ttl:        time.Duration(3600) * time.Second,
-		timestamp:  now,
+		ttl:        3600,
+		timestamp:  now.UnixNano(),
 		expiresAt:  &defaultExpiresAt,
 	}
 
@@ -59,25 +73,26 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 		case "qualifier":
 			parsed.qualifiers = append(parsed.qualifiers, value)
 		case "timestamp":
-			t, err := time.Parse(time.RFC3339, value)
+			timestamp, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid timestamp format: %s", value)
+				return nil, fmt.Errorf("invalid timestamp value: %s", value)
 			}
-			parsed.timestamp = t.Add(time.Nanosecond) // make a slight increment in the time
+			parsed.timestamp = timestamp
 		case "ttl":
 			ttlSec, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid ttl value: %s", value)
 			}
-			parsed.ttl = time.Duration(ttlSec) * time.Second
+			parsed.ttl = ttlSec
 		default:
 			return nil, fmt.Errorf("unknown parameter: %s", key)
 		}
 	}
 
-	// if TTL was provided, calculate the expiresAt time based on timestamp
+	// if TTL was provided, calculate the expiresAt time based on timestamp based on nano seconds
 	if parsed.ttl > 0 {
-		ttlTime := parsed.timestamp.Add(parsed.ttl)
+		ttlNanos := parsed.ttl * 1_000_000_000
+		ttlTime := parsed.timestamp + ttlNanos
 		parsed.expiresAt = &ttlTime
 	}
 

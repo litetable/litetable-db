@@ -6,10 +6,10 @@ import (
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
-func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time, expiresAt *time.Time) error {
+func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]byte,
+	timestamp int64, expiresAt *int64) error {
 	// Check if the family is allowed
 	if !m.IsFamilyAllowed(family) {
 		return fmt.Errorf("column family not allowed: %s", family)

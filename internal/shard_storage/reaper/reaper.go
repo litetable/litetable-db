@@ -11,11 +11,11 @@ import (
 
 // ReapParams are the required parameters for the Reapers Garbage Collection process.
 type ReapParams struct {
-	RowKey     string    `json:"rowKey"`
-	Family     string    `json:"family"`
-	Qualifiers []string  `json:"qualifiers"`
-	Timestamp  time.Time `json:"timestamp"`
-	ExpiresAt  time.Time `json:"expiresAt"`
+	RowKey     string   `json:"rowKey"`
+	Family     string   `json:"family"`
+	Qualifiers []string `json:"qualifiers"`
+	Timestamp  int64    `json:"timestamp"`
+	ExpiresAt  int64    `json:"expiresAt"`
 }
 
 // Reap will take in GCParams and throw it into the Garbage Collector.
@@ -64,6 +64,7 @@ func (r *Reaper) garbageCollector() {
 
 	// Current time to check expiration
 	now := time.Now()
+	nowUnix := now.UnixNano()
 
 	// Read the file line by line
 	var entries []ReapParams
@@ -96,7 +97,7 @@ func (r *Reaper) garbageCollector() {
 		processed++
 
 		// Check if it's expired
-		if now.After(params.ExpiresAt) {
+		if nowUnix > params.ExpiresAt {
 			// Process the tombstone for this entry
 			if deleted := r.didDeleteTombstone(&params); deleted {
 				removed++

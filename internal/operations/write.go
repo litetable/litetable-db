@@ -120,8 +120,8 @@ type writeQuery struct {
 	family     string
 	qualifiers []string
 	values     [][]byte
-	timestamp  time.Time
-	expiresAt  *time.Time
+	timestamp  int64
+	expiresAt  *int64
 	// ttl is the time the row should no longer be relevant from the time written
 	ttl *int64
 }
@@ -132,7 +132,7 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 	parsed := &writeQuery{
 		qualifiers: []string{},
 		values:     [][]byte{},
-		timestamp:  time.Now(),
+		timestamp:  time.Now().UnixNano(),
 		expiresAt:  nil,
 		ttl:        nil,
 	}
@@ -168,8 +168,8 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 			}
 			parsed.ttl = &ttlSec
 			// expires at should be the write time + ttl
-			expireTime := parsed.timestamp.Add(time.Duration(ttlSec) * time.Second)
-			parsed.expiresAt = &expireTime
+			expiresAtTimestamp := parsed.timestamp + ttlSec
+			parsed.expiresAt = &expiresAtTimestamp
 		}
 	}
 

@@ -97,22 +97,23 @@ func TestReadQuery_getLatestN(t *testing.T) {
 	t.Parallel()
 	// test data
 	values := []litetable.TimestampedValue{
-		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
-		{Value: []byte("value2"), Timestamp: time.Date(2023, 10, 1, 12, 0, 1, 0, time.UTC)},
-		{Value: []byte("value3"), Timestamp: time.Date(2023, 10, 1, 12, 0, 2, 0, time.UTC)},
-		{Value: []byte("value4"), Timestamp: time.Date(2023, 10, 1, 12, 0, 3, 0, time.UTC)},
-		{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC)},
-		{Value: []byte("value6"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
-		{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 6, 0, time.UTC)},
-		{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC)},
-		{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC)},
-		{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC).UnixNano()},
+		{Value: []byte("value2"), Timestamp: time.Date(2023, 10, 1, 12, 0, 1, 0, time.UTC).UnixNano()},
+		{Value: []byte("value3"), Timestamp: time.Date(2023, 10, 1, 12, 0, 2, 0, time.UTC).UnixNano()},
+		{Value: []byte("value4"), Timestamp: time.Date(2023, 10, 1, 12, 0, 3, 0, time.UTC).UnixNano()},
+		{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC).UnixNano()},
+		{Value: []byte("value6"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC).UnixNano()},
+		{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 6, 0, time.UTC).UnixNano()},
+		{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC).UnixNano()},
+		{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC).UnixNano()},
+		{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC).UnixNano()},
 	}
 
 	sortedValues := make([]litetable.TimestampedValue, len(values))
 	copy(sortedValues, values)
+	// Fix the sorting function to compare int64 values directly
 	sort.Slice(sortedValues, func(i, j int) bool {
-		return sortedValues[i].Timestamp.After(sortedValues[j].Timestamp)
+		return sortedValues[i].Timestamp > sortedValues[j].Timestamp
 	})
 
 	tests := map[string]struct {
@@ -129,27 +130,27 @@ func TestReadQuery_getLatestN(t *testing.T) {
 			n:    1,
 			want: 1,
 			values: []litetable.TimestampedValue{
-				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC).UnixNano()},
 			},
 		},
 		"get 2": {
 			n:    2,
 			want: 2,
 			values: []litetable.TimestampedValue{
-				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
-				{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC)},
+				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC).UnixNano()},
+				{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC).UnixNano()},
 			},
 		},
 		"get 6": {
 			n:    6,
 			want: 6,
 			values: []litetable.TimestampedValue{
-				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
-				{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC)},
-				{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC)},
-				{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 6, 0, time.UTC)},
-				{Value: []byte("value6"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
-				{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC)},
+				{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC).UnixNano()},
+				{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC).UnixNano()},
+				{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC).UnixNano()},
+				{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 6, 0, time.UTC).UnixNano()},
+				{Value: []byte("value6"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC).UnixNano()},
+				{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC).UnixNano()},
 			},
 		},
 	}
@@ -173,7 +174,7 @@ func TestReadQuery_getLatestN(t *testing.T) {
 			// to oldest
 			if len(got) > 1 {
 				for i := 0; i < len(got)-1; i++ {
-					req.True(got[i].Timestamp.After(got[i+1].Timestamp),
+					req.True(got[i].Timestamp > got[i+1].Timestamp,
 						"values are not sorted in descending order")
 				}
 			}
@@ -185,23 +186,23 @@ func TestReadQuery_getLatestN_withTombstones(t *testing.T) {
 	t.Parallel()
 	// test data
 	values := []litetable.TimestampedValue{
-		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC)},
-		{Value: []byte("value2"), Timestamp: time.Date(2023, 10, 1, 12, 0, 1, 0, time.UTC)},
-		{Value: []byte("value3"), Timestamp: time.Date(2023, 10, 1, 12, 0, 2, 0, time.UTC)},
-		{Value: []byte("value4"), Timestamp: time.Date(2023, 10, 1, 12, 0, 3, 0, time.UTC)},
-		{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC)},
-		{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
-		{Value: []byte("value7"), IsTombstone: true, Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC)},
-		{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC)},
-		{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0,
-			time.UTC)},
-		{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC)},
+		{Value: []byte("value1"), Timestamp: time.Date(2023, 10, 1, 12, 0, 0, 0, time.UTC).UnixNano()},
+		{Value: []byte("value2"), Timestamp: time.Date(2023, 10, 1, 12, 0, 1, 0, time.UTC).UnixNano()},
+		{Value: []byte("value3"), Timestamp: time.Date(2023, 10, 1, 12, 0, 2, 0, time.UTC).UnixNano()},
+		{Value: []byte("value4"), Timestamp: time.Date(2023, 10, 1, 12, 0, 3, 0, time.UTC).UnixNano()},
+		{Value: []byte("value5"), Timestamp: time.Date(2023, 10, 1, 12, 0, 4, 0, time.UTC).UnixNano()},
+		{Value: []byte("value7"), Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC).UnixNano()},
+		{Value: []byte("value7"), IsTombstone: true, Timestamp: time.Date(2023, 10, 1, 12, 0, 5, 0, time.UTC).UnixNano()},
+		{Value: []byte("value8"), Timestamp: time.Date(2023, 10, 1, 12, 0, 7, 0, time.UTC).UnixNano()},
+		{Value: []byte("value9"), Timestamp: time.Date(2023, 10, 1, 12, 0, 8, 0, time.UTC).UnixNano()},
+		{Value: []byte("value10"), Timestamp: time.Date(2023, 10, 1, 12, 0, 9, 0, time.UTC).UnixNano()},
 	}
 
 	sortedValues := make([]litetable.TimestampedValue, len(values))
 	copy(sortedValues, values)
+	// Fix the sorting function for int64 comparison
 	sort.Slice(sortedValues, func(i, j int) bool {
-		return sortedValues[i].Timestamp.After(sortedValues[j].Timestamp)
+		return sortedValues[i].Timestamp > sortedValues[j].Timestamp
 	})
 
 	tests := map[string]struct {
@@ -235,7 +236,7 @@ func TestReadQuery_getLatestN_withTombstones(t *testing.T) {
 			// to oldest
 			if len(got) > 1 {
 				for i := 0; i < len(got)-1; i++ {
-					req.True(got[i].Timestamp.After(got[i+1].Timestamp),
+					req.True(got[i].Timestamp > got[i+1].Timestamp,
 						"values are not sorted in descending order")
 				}
 			}
@@ -247,7 +248,7 @@ func TestReadQuery_getLatestN_withTombstones(t *testing.T) {
 func Test_readRowKey(t *testing.T) {
 	t.Parallel()
 
-	now := time.Now()
+	now := time.Now().UnixNano()
 	mockdata := &litetable.Data{
 		"user:12345": {
 			"profile": {
@@ -256,11 +257,11 @@ func Test_readRowKey(t *testing.T) {
 				},
 				"lastName": {
 					{Value: []byte("Smith"), Timestamp: now},
-					{Value: []byte("Smithy"), Timestamp: now.Add(-time.Hour)},
+					{Value: []byte("Smithy"), Timestamp: now - int64(time.Hour)}, // Subtract time with int64
 				},
 				"email": {
 					{Value: []byte("john@example.net"), Timestamp: now},
-					{Value: []byte("john@example.com"), Timestamp: now.Add(-time.Hour)},
+					{Value: []byte("john@example.com"), Timestamp: now - int64(time.Hour)}, // Subtract time with int64
 				},
 			},
 		},
@@ -309,11 +310,11 @@ func Test_readRowKey(t *testing.T) {
 						},
 						"lastName": {
 							{Value: []byte("Smith"), Timestamp: now},
-							{Value: []byte("Smithy"), Timestamp: now.Add(-time.Hour)},
+							{Value: []byte("Smithy"), Timestamp: now - int64(time.Hour)},
 						},
 						"email": {
 							{Value: []byte("john@example.net"), Timestamp: now},
-							{Value: []byte("john@example.com"), Timestamp: now.Add(-time.Hour)},
+							{Value: []byte("john@example.com"), Timestamp: now - int64(time.Hour)},
 						},
 					},
 				},
@@ -358,7 +359,7 @@ func Test_readRowKey(t *testing.T) {
 					"profile": {
 						"lastName": {
 							{Value: []byte("Smith"), Timestamp: now},
-							{Value: []byte("Smithy"), Timestamp: now.Add(-time.Hour)},
+							{Value: []byte("Smithy"), Timestamp: now - int64(time.Hour)},
 						},
 					},
 				},
@@ -434,7 +435,7 @@ func Test_readRowKey(t *testing.T) {
 }
 
 func Test_filterRowsByPrefix(t *testing.T) {
-	now := time.Now()
+	now := time.Now().UnixNano()
 	mockdata := &litetable.Data{
 		"user:12345": {
 			"profile": {
@@ -550,7 +551,7 @@ func Test_filterRowsByPrefix(t *testing.T) {
 }
 
 func Test_filterRowsByRegex(t *testing.T) {
-	now := time.Now()
+	now := time.Now().UnixNano()
 	mockdata := &litetable.Data{
 		"user:12345": {
 			"profile": {
@@ -672,7 +673,7 @@ func Test_filterRowsByRegex(t *testing.T) {
 
 func Test_read(t *testing.T) {
 	t.Parallel()
-	now := time.Now()
+	now := time.Now().UnixNano()
 	mockdata := &litetable.Data{
 		"user:12345": {
 			"profile": {

@@ -12,28 +12,29 @@ import (
 
 func TestManager_runIncrementalSnapshot(t *testing.T) {
 
+	unixNow := time.Now().UnixNano()
 	mockData := map[string]map[string]litetable.VersionedQualifier{
 		"row1": {
 			"family1": litetable.VersionedQualifier{
 				"qualifier1": []litetable.TimestampedValue{
-					{Value: []byte("value1"), Timestamp: time.Now()},
+					{Value: []byte("value1"), Timestamp: unixNow},
 				},
 			},
 			"family2": litetable.VersionedQualifier{
 				"qualifier2": []litetable.TimestampedValue{
-					{Value: []byte("value1"), Timestamp: time.Now()},
+					{Value: []byte("value1"), Timestamp: unixNow},
 				},
 			},
 			"family3": litetable.VersionedQualifier{
 				"qualifier5": []litetable.TimestampedValue{
-					{Value: []byte("value1"), Timestamp: time.Now()},
+					{Value: []byte("value1"), Timestamp: unixNow},
 				},
 			},
 		},
 		"row2": {
 			"family1": litetable.VersionedQualifier{
 				"qualifier4": []litetable.TimestampedValue{
-					{Value: []byte("value1"), Timestamp: time.Now()},
+					{Value: []byte("value1"), Timestamp: unixNow},
 				},
 			},
 		},
@@ -65,7 +66,8 @@ func TestManager_runIncrementalSnapshot(t *testing.T) {
 				req := require.New(t)
 				req.NoError(err, "should not return an error")
 				req.NotEqual("", tc.manager.latestPartialSnapshotFile, "should have a snapshot file")
-				req.True(tc.manager.lastPartialSnapshotTime.After(time.Time{}), "should have a valid timestamp")
+				req.True(tc.manager.lastPartialSnapshotTime > 0,
+					"should have a valid unix timestamp")
 
 				// let's validate the data that was written
 				tmpFile, err := os.ReadFile(tc.manager.latestPartialSnapshotFile)
@@ -77,7 +79,8 @@ func TestManager_runIncrementalSnapshot(t *testing.T) {
 				req.NoError(err, "should not return an error")
 
 				req.Equal(1, snapshot.Version, "should have the correct version")
-				req.Equal(tc.manager.lastPartialSnapshotTime.Unix(), snapshot.SnapshotTimestamp.Unix(), "should have the correct timestamp")
+				req.Equal(tc.manager.lastPartialSnapshotTime,
+					snapshot.SnapshotTimestamp, "should have the correct timestamp")
 				req.Equal(2, len(snapshot.SnapshotData), "should have 2 rows")
 
 				req.Equal(2, len(*snapshot.SnapshotData["row1"]), "should have 2 families")
@@ -90,7 +93,8 @@ func TestManager_runIncrementalSnapshot(t *testing.T) {
 				req := require.New(t)
 				req.NoError(err, "should not return an error")
 				req.Equal("", tc.manager.latestPartialSnapshotFile, "should not have a snapshot file")
-				req.Equal(time.Time{}, tc.manager.lastPartialSnapshotTime, "should not have a valid timestamp")
+				req.Equal(int64(0), tc.manager.lastPartialSnapshotTime,
+					"should not have a valid timestamp")
 			}
 		})
 	}

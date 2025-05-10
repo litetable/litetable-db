@@ -29,11 +29,11 @@ func convertToProtoData(rows map[string]*litetable2.Row) *proto.LitetableData {
 				for _, tv := range timestampedValues {
 					protoTv := &proto.TimestampedValue{
 						Value:         tv.Value,
-						TimestampUnix: tv.Timestamp.UnixNano(),
+						TimestampUnix: tv.Timestamp,
 					}
 
 					if tv.ExpiresAt != nil {
-						protoTv.ExpiresAtUnix = tv.ExpiresAt.UnixNano()
+						protoTv.ExpiresAtUnix = *tv.ExpiresAt
 					}
 
 					qualifierValues.Values = append(qualifierValues.Values, protoTv)

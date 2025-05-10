@@ -18,7 +18,7 @@ const (
 
 type snapShopData struct {
 	Version           int                                                 `json:"version"`
-	SnapshotTimestamp time.Time                                           `json:"snapshotTimestamp"`
+	SnapshotTimestamp int64                                               `json:"snapshotTimestamp"`
 	IsPartial         bool                                                `json:"isPartial"`
 	SnapshotData      map[string]*map[string]litetable.VersionedQualifier `json:"snapshotData"`
 }
@@ -33,9 +33,9 @@ func (m *Manager) runIncrementalSnapshot() error {
 		return nil
 	}
 
-	writtenTime := time.Now()
+	writtenTime := time.Now().UnixNano()
 
-	log.Info().Msg("creating incremental snapshot: " + writtenTime.String())
+	log.Info().Msgf("creating incremental snapshot: %d", writtenTime)
 	snapshot := m.createIncrementalSnapshotData(writtenTime)
 	if snapshot.SnapshotData == nil {
 		log.Debug().Msg("no snapshot data to save")
@@ -43,7 +43,7 @@ func (m *Manager) runIncrementalSnapshot() error {
 	}
 
 	// create a partial snapshot
-	filename := filepath.Join(m.snapshotDir, fmt.Sprintf("%s-%d.db", snapshotPrefix, writtenTime.UnixNano()))
+	filename := filepath.Join(m.snapshotDir, fmt.Sprintf("%s-%d.db", snapshotPrefix, writtenTime))
 
 	// Serialize and save to disk
 	dataBytes, err := json.Marshal(snapshot)
@@ -66,7 +66,7 @@ func (m *Manager) runIncrementalSnapshot() error {
 }
 
 // createIncrementalSnapshotData creates a snapshot of the current data in memory
-func (m *Manager) createIncrementalSnapshotData(time time.Time) *snapShopData {
+func (m *Manager) createIncrementalSnapshotData(time int64) *snapShopData {
 	snap := &snapShopData{
 		Version:           1,
 		SnapshotTimestamp: time,
@@ -250,7 +250,7 @@ func (m *Manager) snapshotMerge() error {
 				// Instead of directly copying values, merge them properly
 				if existingValues, exists := loadedData[rowKey][familyName][qualifier]; exists {
 					// Create a map to track values by timestamp to avoid duplicates
-					valuesByTimestamp := make(map[time.Time]litetable.TimestampedValue)
+					valuesByTimestamp := make(map[int64]litetable.TimestampedValue)
 
 					// Add existing values to the map
 					for _, val := range existingValues {
@@ -270,7 +270,7 @@ func (m *Manager) snapshotMerge() error {
 
 					// Sort by timestamp (newest first)
 					sort.Slice(mergedValues, func(i, j int) bool {
-						return mergedValues[i].Timestamp.After(mergedValues[j].Timestamp)
+						return mergedValues[i].Timestamp > mergedValues[j].Timestamp
 					})
 
 					loadedData[rowKey][familyName][qualifier] = mergedValues
@@ -307,7 +307,7 @@ func (m *Manager) snapshotMerge() error {
 
 // processTombstones processes the data and removes tombstoned entries
 func (m *Manager) processTombstones(data *litetable.Data) {
-	now := time.Now()
+	now := time.Now().UnixNano()
 
 	for rowKey, columnFamilies := range *data {
 		for familyName, qualifiers := range columnFamilies {
@@ -324,7 +324,7 @@ func (m *Manager) processTombstones(data *litetable.Data) {
 				// or keep it only if the tombstone hasn't expired yet
 				if len(values) > 0 && values[0].IsTombstone {
 					// If the tombstone is expired, remove the entire qualifier
-					if values[0].ExpiresAt.Before(now) {
+					if *values[0].ExpiresAt < now {
 						delete(qualifiers, qualifierName)
 					}
 				}

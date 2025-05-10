@@ -17,7 +17,7 @@ const (
 
 type storage interface {
 	GetRowByFamily(key, family string) (*litetable.Data, bool)
-	DeleteExpiredTombstones(rowKey, family string, qualifiers []string, timestamp time.Time) bool
+	DeleteExpiredTombstones(rowKey, family string, qualifiers []string, timestamp int64) bool
 	MarkRowChanged(family, rowKey string)
 }
 

@@ -47,7 +47,7 @@ func TestManager_raiseCDCEvent(t *testing.T) {
 				RowKey:    "user:123",
 				Column: litetable.TimestampedValue{
 					Value:     []byte("test-value"),
-					Timestamp: time.Now(),
+					Timestamp: time.Now().UnixNano(),
 				},
 			},
 			clients:       1,
@@ -63,7 +63,7 @@ func TestManager_raiseCDCEvent(t *testing.T) {
 				RowKey:    "user:456",
 				Column: litetable.TimestampedValue{
 					Value:     []byte("updated-value"),
-					Timestamp: time.Now(),
+					Timestamp: time.Now().UnixNano(),
 				},
 			},
 			clients:       3,
@@ -79,7 +79,7 @@ func TestManager_raiseCDCEvent(t *testing.T) {
 				Qualifier: "name",
 				Column: litetable.TimestampedValue{
 					Value:     []byte("deleted-value"),
-					Timestamp: time.Now(),
+					Timestamp: time.Now().UnixNano(),
 				},
 			},
 			clients:       3,
@@ -109,7 +109,7 @@ func TestManager_raiseCDCEvent(t *testing.T) {
 				Timestamp:   tt.params.Column.Timestamp,
 				IsTombstone: tt.params.Column.IsTombstone,
 			}
-			if tt.params.Column.ExpiresAt != nil && !tt.params.Column.ExpiresAt.IsZero() {
+			if tt.params.Column.ExpiresAt != nil {
 				expectedEvent.ExpiresAt = tt.params.Column.ExpiresAt
 			}
 

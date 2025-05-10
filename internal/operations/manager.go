@@ -5,7 +5,6 @@ import (
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/wal"
-	"time"
 )
 
 //go:generate mockgen -destination=manager_mock.go -package=operations -source=manager.go
@@ -22,9 +21,10 @@ type shardManager interface {
 	IsFamilyAllowed(family string) bool
 	UpdateFamilies(families []string) error
 
-	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp time.Time, expiresAt *time.Time) error
-	Delete(key, family string, qualifiers []string, timestamp time.Time,
-		expiresAt *time.Time) error
+	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp int64,
+		expiresAt *int64) error
+	Delete(key, family string, qualifiers []string, timestamp int64,
+		expiresAt *int64) error
 }
 
 type cdc interface {

@@ -24,7 +24,7 @@ import (
 // cache.
 func (m *Manager) saveBackup(data *litetable.Data) error {
 	start := time.Now()
-	filename := filepath.Join(m.dataDir, fmt.Sprintf("backup-%d.db", time.Now().UnixNano()))
+	filename := filepath.Join(m.dataDir, fmt.Sprintf("backup-%d.db", start.UnixNano()))
 
 	dataBytes, err := json.Marshal(data)
 	if err != nil {

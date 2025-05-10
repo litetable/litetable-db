@@ -8,6 +8,7 @@ import (
 type operations interface {
 	Read(query string) (map[string]*litetable2.Row, error)
 	Write(query string) (map[string]*litetable2.Row, error)
+	Delete(query string) error
 }
 
 type litetable struct {
