@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package litetable.server.v1;
+
+option go_package = "pkg/proto;proto";
+
+
+// Represents a timestamped value with optional expiration and tombstone flag.
+message TimestampedValue {
+  bytes value = 1;
+  int64 timestamp_unix= 2;
+  bool tombstone = 3;
+  int64 expires_at_unix = 4;
+}
+
+// A map of qualifier → repeated timestamped values.
+// Equivalent to: map<string, []TimestampedValue>
+message VersionedQualifier {
+  map<string, QualifierValues> qualifiers = 1;
+}
+
+message QualifierValues {
+  repeated TimestampedValue values = 1;
+}
+
+// A row of LiteTable data: key + column families and their versioned values.
+message Row {
+  string key = 1;
+  map<string, VersionedQualifier> cols = 2; // family → VersionedQualifier
+}
+
+// The full Litetable Data schema:
+//
+//{
+//  "rows": {
+//    "champ:1": {
+//      "key": "champ:1",
+//      "cols": {
+//        "wrestlers": { // column family
+//          "qualifiers": {
+//            "name": [ // column qualifier
+//              {
+//                "value": "John",
+//                "timestamp": 1234567890,
+//                "expires_at": 1234567890
+//              }
+//            ],
+//            "nickname": [ // column qualifier
+//              {
+//              "value": "Smith",
+//              "timestamp": 1234567890,
+//              "expires_at": 1234567890
+//              }
+//            ],
+//          }
+//        }
+//      }
+//    }
+//  }
+//}
+message LitetableData {
+  map<string, Row> rows = 1;
+}
+
+enum QueryType {
+  EXACT = 0;   // row_key is an exact key
+  PREFIX = 1;  // row_key is a prefix to match
+  REGEX = 2;   // row_key is a regex to match
+}
+
+// The request, for now empty — could contain filters in the future.
+message ReadRequest {
+  string row_key = 1;           // either exact, prefix, or regex depending on query_type
+  QueryType query_type = 2;     // determines how row_key should be interpreted
+  string family = 3;            // column family
+  repeated string qualifiers = 4; // specific qualifiers
+  int32 latest = 5;             // how many latest values to return per qualifier
+}
+
+// LitetableService is a gRPC service that interacts with the LiteTable server.
+service LitetableService {
+  rpc Read(ReadRequest) returns (LitetableData);
+}
