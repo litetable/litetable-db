@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	LitetableService_Read_FullMethodName = "/litetable.server.v1.LitetableService/Read"
+	LitetableService_Read_FullMethodName  = "/litetable.server.v1.LitetableService/Read"
+	LitetableService_Write_FullMethodName = "/litetable.server.v1.LitetableService/Write"
 )
 
 // LitetableServiceClient is the client API for LitetableService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LitetableServiceClient interface {
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*LitetableData, error)
+	Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*LitetableData, error)
 }
 
 type litetableServiceClient struct {
@@ -46,11 +48,21 @@ func (c *litetableServiceClient) Read(ctx context.Context, in *ReadRequest, opts
 	return out, nil
 }
 
+func (c *litetableServiceClient) Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*LitetableData, error) {
+	out := new(LitetableData)
+	err := c.cc.Invoke(ctx, LitetableService_Write_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LitetableServiceServer is the server API for LitetableService service.
 // All implementations must embed UnimplementedLitetableServiceServer
 // for forward compatibility
 type LitetableServiceServer interface {
 	Read(context.Context, *ReadRequest) (*LitetableData, error)
+	Write(context.Context, *WriteRequest) (*LitetableData, error)
 	mustEmbedUnimplementedLitetableServiceServer()
 }
 
@@ -60,6 +72,9 @@ type UnimplementedLitetableServiceServer struct {
 
 func (UnimplementedLitetableServiceServer) Read(context.Context, *ReadRequest) (*LitetableData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Read not implemented")
+}
+func (UnimplementedLitetableServiceServer) Write(context.Context, *WriteRequest) (*LitetableData, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Write not implemented")
 }
 func (UnimplementedLitetableServiceServer) mustEmbedUnimplementedLitetableServiceServer() {}
 
@@ -92,6 +107,24 @@ func _LitetableService_Read_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LitetableService_Write_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WriteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LitetableServiceServer).Write(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LitetableService_Write_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LitetableServiceServer).Write(ctx, req.(*WriteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LitetableService_ServiceDesc is the grpc.ServiceDesc for LitetableService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -102,6 +135,10 @@ var LitetableService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Read",
 			Handler:    _LitetableService_Read_Handler,
+		},
+		{
+			MethodName: "Write",
+			Handler:    _LitetableService_Write_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

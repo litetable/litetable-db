@@ -7,9 +7,9 @@ import (
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/config"
 	"github.com/litetable/litetable-db/internal/engine"
-	"github.com/litetable/litetable-db/internal/grpc"
 	"github.com/litetable/litetable-db/internal/operations"
 	"github.com/litetable/litetable-db/internal/server"
+	"github.com/litetable/litetable-db/internal/server/grpc"
 	"github.com/litetable/litetable-db/internal/shard_storage"
 
 	"github.com/litetable/litetable-db/internal/shard_storage/wal"

@@ -48,6 +48,8 @@ func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]b
 		}
 
 		// If we have an expiration time, mark as tombstone
+		// TODO: fix this bug. If we add a tombstone to a qualifier,
+		//  it won't return from call - duh!
 		if expiresAt != nil {
 			newValue.IsTombstone = true
 			newValue.ExpiresAt = expiresAt

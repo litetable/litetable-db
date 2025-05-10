@@ -38,7 +38,6 @@ func (l *litetable) Read(ctx context.Context, msg *proto.ReadRequest) (*proto.Li
 	}
 
 	// Ex: READ family="family" rowKey="rowKey" qualifier="qualifier" latest=5
-	// queryStr := "READ"
 	queryStr := "family=" + msg.GetFamily()
 	if msg.GetQueryType() == proto.QueryType_EXACT {
 		queryStr += " key=" + msg.GetRowKey()
@@ -88,7 +87,7 @@ func convertToProtoData(rows map[string]*litetable2.Row) *proto.LitetableData {
 						Value:         tv.Value,
 						TimestampUnix: tv.Timestamp.UnixNano(),
 					}
-					
+
 					if tv.ExpiresAt != nil {
 						protoTv.ExpiresAtUnix = tv.ExpiresAt.UnixNano()
 					}

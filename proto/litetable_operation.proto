@@ -68,7 +68,14 @@ enum QueryType {
   REGEX = 2;   // row_key is a regex to match
 }
 
-// The request, for now empty — could contain filters in the future.
+// ReadRequest is the contract for queries.
+//{
+//  "row_key": "champ:1",
+//  "query_type": "EXACT",
+//  "family": "wrestlers",
+//  "qualifiers": ["name", "nickname"],
+//  "latest": 1
+//}
 message ReadRequest {
   string row_key = 1;           // either exact, prefix, or regex depending on query_type
   QueryType query_type = 2;     // determines how row_key should be interpreted
@@ -77,7 +84,22 @@ message ReadRequest {
   int32 latest = 5;             // how many latest values to return per qualifier
 }
 
+// ColumnQualifier is a key-value pair representing a column qualifier and its value.
+message ColumnQualifier {
+  string name = 1; // column qualifier
+  bytes value = 2; // value of the column qualifier
+}
+
+// WriteRequest is the contract for litetable writes.
+message WriteRequest {
+  string row_key = 1;
+  string family = 2;           // column family
+  repeated ColumnQualifier qualifiers = 3; // specific qualifiers
+  int64 timestamp_unix = 4;   // timestamp of the write
+}
+
 // LitetableService is a gRPC service that interacts with the LiteTable server.
 service LitetableService {
   rpc Read(ReadRequest) returns (LitetableData);
+  rpc Write(WriteRequest) returns (LitetableData);
 }

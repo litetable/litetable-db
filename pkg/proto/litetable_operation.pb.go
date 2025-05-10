@@ -369,7 +369,15 @@ func (x *LitetableData) GetRows() map[string]*Row {
 	return nil
 }
 
-// The request, for now empty — could contain filters in the future.
+// ReadRequest is the contract for queries.
+//
+//	{
+//	 "row_key": "champ:1",
+//	 "query_type": "EXACT",
+//	 "family": "wrestlers",
+//	 "qualifiers": ["name", "nickname"],
+//	 "latest": 1
+//	}
 type ReadRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -449,6 +457,134 @@ func (x *ReadRequest) GetLatest() int32 {
 	return 0
 }
 
+// ColumnQualifier is a key-value pair representing a column qualifier and its value.
+type ColumnQualifier struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name  string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`   // column qualifier
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"` // value of the column qualifier
+}
+
+func (x *ColumnQualifier) Reset() {
+	*x = ColumnQualifier{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_litetable_operation_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ColumnQualifier) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ColumnQualifier) ProtoMessage() {}
+
+func (x *ColumnQualifier) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_litetable_operation_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ColumnQualifier.ProtoReflect.Descriptor instead.
+func (*ColumnQualifier) Descriptor() ([]byte, []int) {
+	return file_proto_litetable_operation_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ColumnQualifier) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ColumnQualifier) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+// WriteRequest is the contract for litetable writes.
+type WriteRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	RowKey        string             `protobuf:"bytes,1,opt,name=row_key,json=rowKey,proto3" json:"row_key,omitempty"`
+	Family        string             `protobuf:"bytes,2,opt,name=family,proto3" json:"family,omitempty"`                                     // column family
+	Qualifiers    []*ColumnQualifier `protobuf:"bytes,3,rep,name=qualifiers,proto3" json:"qualifiers,omitempty"`                             // specific qualifiers
+	TimestampUnix int64              `protobuf:"varint,4,opt,name=timestamp_unix,json=timestampUnix,proto3" json:"timestamp_unix,omitempty"` // timestamp of the write
+}
+
+func (x *WriteRequest) Reset() {
+	*x = WriteRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_litetable_operation_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *WriteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteRequest) ProtoMessage() {}
+
+func (x *WriteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_litetable_operation_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteRequest.ProtoReflect.Descriptor instead.
+func (*WriteRequest) Descriptor() ([]byte, []int) {
+	return file_proto_litetable_operation_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *WriteRequest) GetRowKey() string {
+	if x != nil {
+		return x.RowKey
+	}
+	return ""
+}
+
+func (x *WriteRequest) GetFamily() string {
+	if x != nil {
+		return x.Family
+	}
+	return ""
+}
+
+func (x *WriteRequest) GetQualifiers() []*ColumnQualifier {
+	if x != nil {
+		return x.Qualifiers
+	}
+	return nil
+}
+
+func (x *WriteRequest) GetTimestampUnix() int64 {
+	if x != nil {
+		return x.TimestampUnix
+	}
+	return 0
+}
+
 var File_proto_litetable_operation_proto protoreflect.FileDescriptor
 
 var file_proto_litetable_operation_proto_rawDesc = []byte{
@@ -516,18 +652,38 @@ var file_proto_litetable_operation_proto_rawDesc = []byte{
 	0x12, 0x1e, 0x0a, 0x0a, 0x71, 0x75, 0x61, 0x6c, 0x69, 0x66, 0x69, 0x65, 0x72, 0x73, 0x18, 0x04,
 	0x20, 0x03, 0x28, 0x09, 0x52, 0x0a, 0x71, 0x75, 0x61, 0x6c, 0x69, 0x66, 0x69, 0x65, 0x72, 0x73,
 	0x12, 0x16, 0x0a, 0x06, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x05,
-	0x52, 0x06, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x74, 0x2a, 0x2d, 0x0a, 0x09, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x54, 0x79, 0x70, 0x65, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x58, 0x41, 0x43, 0x54, 0x10, 0x00,
-	0x12, 0x0a, 0x0a, 0x06, 0x50, 0x52, 0x45, 0x46, 0x49, 0x58, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05,
-	0x52, 0x45, 0x47, 0x45, 0x58, 0x10, 0x02, 0x32, 0x60, 0x0a, 0x10, 0x4c, 0x69, 0x74, 0x65, 0x74,
-	0x61, 0x62, 0x6c, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x4c, 0x0a, 0x04, 0x52,
-	0x65, 0x61, 0x64, 0x12, 0x20, 0x2e, 0x6c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2e,
-	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x6c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62, 0x6c,
-	0x65, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x74, 0x65,
-	0x74, 0x61, 0x62, 0x6c, 0x65, 0x44, 0x61, 0x74, 0x61, 0x42, 0x11, 0x5a, 0x0f, 0x70, 0x6b, 0x67,
-	0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x3b, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x52, 0x06, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x74, 0x22, 0x3b, 0x0a, 0x0f, 0x43, 0x6f, 0x6c, 0x75,
+	0x6d, 0x6e, 0x51, 0x75, 0x61, 0x6c, 0x69, 0x66, 0x69, 0x65, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x6e,
+	0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12,
+	0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0xac, 0x01, 0x0a, 0x0c, 0x57, 0x72, 0x69, 0x74, 0x65, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x72, 0x6f, 0x77, 0x5f, 0x6b, 0x65,
+	0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x72, 0x6f, 0x77, 0x4b, 0x65, 0x79, 0x12,
+	0x16, 0x0a, 0x06, 0x66, 0x61, 0x6d, 0x69, 0x6c, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x06, 0x66, 0x61, 0x6d, 0x69, 0x6c, 0x79, 0x12, 0x44, 0x0a, 0x0a, 0x71, 0x75, 0x61, 0x6c, 0x69,
+	0x66, 0x69, 0x65, 0x72, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x6c, 0x69,
+	0x74, 0x65, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x76,
+	0x31, 0x2e, 0x43, 0x6f, 0x6c, 0x75, 0x6d, 0x6e, 0x51, 0x75, 0x61, 0x6c, 0x69, 0x66, 0x69, 0x65,
+	0x72, 0x52, 0x0a, 0x71, 0x75, 0x61, 0x6c, 0x69, 0x66, 0x69, 0x65, 0x72, 0x73, 0x12, 0x25, 0x0a,
+	0x0e, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x5f, 0x75, 0x6e, 0x69, 0x78, 0x18,
+	0x04, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0d, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70,
+	0x55, 0x6e, 0x69, 0x78, 0x2a, 0x2d, 0x0a, 0x09, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x79, 0x70,
+	0x65, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x58, 0x41, 0x43, 0x54, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06,
+	0x50, 0x52, 0x45, 0x46, 0x49, 0x58, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x52, 0x45, 0x47, 0x45,
+	0x58, 0x10, 0x02, 0x32, 0xb0, 0x01, 0x0a, 0x10, 0x4c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62, 0x6c,
+	0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x4c, 0x0a, 0x04, 0x52, 0x65, 0x61, 0x64,
+	0x12, 0x20, 0x2e, 0x6c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2e, 0x73, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x22, 0x2e, 0x6c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2e, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62,
+	0x6c, 0x65, 0x44, 0x61, 0x74, 0x61, 0x12, 0x4e, 0x0a, 0x05, 0x57, 0x72, 0x69, 0x74, 0x65, 0x12,
+	0x21, 0x2e, 0x6c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2e, 0x73, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x57, 0x72, 0x69, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x22, 0x2e, 0x6c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2e, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x74, 0x65, 0x74, 0x61, 0x62,
+	0x6c, 0x65, 0x44, 0x61, 0x74, 0x61, 0x42, 0x11, 0x5a, 0x0f, 0x70, 0x6b, 0x67, 0x2f, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x3b, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -543,7 +699,7 @@ func file_proto_litetable_operation_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_litetable_operation_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_litetable_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_proto_litetable_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_proto_litetable_operation_proto_goTypes = []interface{}{
 	(QueryType)(0),             // 0: litetable.server.v1.QueryType
 	(*TimestampedValue)(nil),   // 1: litetable.server.v1.TimestampedValue
@@ -552,26 +708,31 @@ var file_proto_litetable_operation_proto_goTypes = []interface{}{
 	(*Row)(nil),                // 4: litetable.server.v1.Row
 	(*LitetableData)(nil),      // 5: litetable.server.v1.LitetableData
 	(*ReadRequest)(nil),        // 6: litetable.server.v1.ReadRequest
-	nil,                        // 7: litetable.server.v1.VersionedQualifier.QualifiersEntry
-	nil,                        // 8: litetable.server.v1.Row.ColsEntry
-	nil,                        // 9: litetable.server.v1.LitetableData.RowsEntry
+	(*ColumnQualifier)(nil),    // 7: litetable.server.v1.ColumnQualifier
+	(*WriteRequest)(nil),       // 8: litetable.server.v1.WriteRequest
+	nil,                        // 9: litetable.server.v1.VersionedQualifier.QualifiersEntry
+	nil,                        // 10: litetable.server.v1.Row.ColsEntry
+	nil,                        // 11: litetable.server.v1.LitetableData.RowsEntry
 }
 var file_proto_litetable_operation_proto_depIdxs = []int32{
-	7, // 0: litetable.server.v1.VersionedQualifier.qualifiers:type_name -> litetable.server.v1.VersionedQualifier.QualifiersEntry
-	1, // 1: litetable.server.v1.QualifierValues.values:type_name -> litetable.server.v1.TimestampedValue
-	8, // 2: litetable.server.v1.Row.cols:type_name -> litetable.server.v1.Row.ColsEntry
-	9, // 3: litetable.server.v1.LitetableData.rows:type_name -> litetable.server.v1.LitetableData.RowsEntry
-	0, // 4: litetable.server.v1.ReadRequest.query_type:type_name -> litetable.server.v1.QueryType
-	3, // 5: litetable.server.v1.VersionedQualifier.QualifiersEntry.value:type_name -> litetable.server.v1.QualifierValues
-	2, // 6: litetable.server.v1.Row.ColsEntry.value:type_name -> litetable.server.v1.VersionedQualifier
-	4, // 7: litetable.server.v1.LitetableData.RowsEntry.value:type_name -> litetable.server.v1.Row
-	6, // 8: litetable.server.v1.LitetableService.Read:input_type -> litetable.server.v1.ReadRequest
-	5, // 9: litetable.server.v1.LitetableService.Read:output_type -> litetable.server.v1.LitetableData
-	9, // [9:10] is the sub-list for method output_type
-	8, // [8:9] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	9,  // 0: litetable.server.v1.VersionedQualifier.qualifiers:type_name -> litetable.server.v1.VersionedQualifier.QualifiersEntry
+	1,  // 1: litetable.server.v1.QualifierValues.values:type_name -> litetable.server.v1.TimestampedValue
+	10, // 2: litetable.server.v1.Row.cols:type_name -> litetable.server.v1.Row.ColsEntry
+	11, // 3: litetable.server.v1.LitetableData.rows:type_name -> litetable.server.v1.LitetableData.RowsEntry
+	0,  // 4: litetable.server.v1.ReadRequest.query_type:type_name -> litetable.server.v1.QueryType
+	7,  // 5: litetable.server.v1.WriteRequest.qualifiers:type_name -> litetable.server.v1.ColumnQualifier
+	3,  // 6: litetable.server.v1.VersionedQualifier.QualifiersEntry.value:type_name -> litetable.server.v1.QualifierValues
+	2,  // 7: litetable.server.v1.Row.ColsEntry.value:type_name -> litetable.server.v1.VersionedQualifier
+	4,  // 8: litetable.server.v1.LitetableData.RowsEntry.value:type_name -> litetable.server.v1.Row
+	6,  // 9: litetable.server.v1.LitetableService.Read:input_type -> litetable.server.v1.ReadRequest
+	8,  // 10: litetable.server.v1.LitetableService.Write:input_type -> litetable.server.v1.WriteRequest
+	5,  // 11: litetable.server.v1.LitetableService.Read:output_type -> litetable.server.v1.LitetableData
+	5,  // 12: litetable.server.v1.LitetableService.Write:output_type -> litetable.server.v1.LitetableData
+	11, // [11:13] is the sub-list for method output_type
+	9,  // [9:11] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_proto_litetable_operation_proto_init() }
@@ -652,6 +813,30 @@ func file_proto_litetable_operation_proto_init() {
 				return nil
 			}
 		}
+		file_proto_litetable_operation_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ColumnQualifier); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_litetable_operation_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*WriteRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -659,7 +844,7 @@ func file_proto_litetable_operation_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_litetable_operation_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
