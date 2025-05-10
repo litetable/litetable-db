@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	LitetableService_Read_FullMethodName  = "/litetable.server.v1.LitetableService/Read"
-	LitetableService_Write_FullMethodName = "/litetable.server.v1.LitetableService/Write"
+	LitetableService_Read_FullMethodName   = "/litetable.server.v1.LitetableService/Read"
+	LitetableService_Write_FullMethodName  = "/litetable.server.v1.LitetableService/Write"
+	LitetableService_Delete_FullMethodName = "/litetable.server.v1.LitetableService/Delete"
 )
 
 // LitetableServiceClient is the client API for LitetableService service.
@@ -29,6 +30,7 @@ const (
 type LitetableServiceClient interface {
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*LitetableData, error)
 	Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*LitetableData, error)
+	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type litetableServiceClient struct {
@@ -57,12 +59,22 @@ func (c *litetableServiceClient) Write(ctx context.Context, in *WriteRequest, op
 	return out, nil
 }
 
+func (c *litetableServiceClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, LitetableService_Delete_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LitetableServiceServer is the server API for LitetableService service.
 // All implementations must embed UnimplementedLitetableServiceServer
 // for forward compatibility
 type LitetableServiceServer interface {
 	Read(context.Context, *ReadRequest) (*LitetableData, error)
 	Write(context.Context, *WriteRequest) (*LitetableData, error)
+	Delete(context.Context, *DeleteRequest) (*Empty, error)
 	mustEmbedUnimplementedLitetableServiceServer()
 }
 
@@ -75,6 +87,9 @@ func (UnimplementedLitetableServiceServer) Read(context.Context, *ReadRequest) (
 }
 func (UnimplementedLitetableServiceServer) Write(context.Context, *WriteRequest) (*LitetableData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Write not implemented")
+}
+func (UnimplementedLitetableServiceServer) Delete(context.Context, *DeleteRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }
 func (UnimplementedLitetableServiceServer) mustEmbedUnimplementedLitetableServiceServer() {}
 
@@ -125,6 +140,24 @@ func _LitetableService_Write_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LitetableService_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LitetableServiceServer).Delete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LitetableService_Delete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LitetableServiceServer).Delete(ctx, req.(*DeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LitetableService_ServiceDesc is the grpc.ServiceDesc for LitetableService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -139,6 +172,10 @@ var LitetableService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Write",
 			Handler:    _LitetableService_Write_Handler,
+		},
+		{
+			MethodName: "Delete",
+			Handler:    _LitetableService_Delete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

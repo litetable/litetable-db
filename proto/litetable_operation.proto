@@ -4,6 +4,7 @@ package litetable.server.v1;
 
 option go_package = "pkg/proto;proto";
 
+message Empty {}
 
 // Represents a timestamped value with optional expiration and tombstone flag.
 message TimestampedValue {
@@ -97,8 +98,18 @@ message WriteRequest {
   repeated ColumnQualifier qualifiers = 3; // specific qualifiers
 }
 
+// DeleteRequest is the contract for litetable deletes.
+message DeleteRequest {
+  string row_key = 1;
+  string family = 2;           // column family
+  repeated string qualifiers = 3; // specific qualifiers
+  int64 timestamp_unix = 4; // (optional) timestamp for the delete operation
+  int32 ttl = 5; // (optional) time-to-live in seconds for the delete operation
+}
+
 // LitetableService is a gRPC service that interacts with the LiteTable server.
 service LitetableService {
   rpc Read(ReadRequest) returns (LitetableData);
   rpc Write(WriteRequest) returns (LitetableData);
+  rpc Delete(DeleteRequest) returns (Empty);
 }
