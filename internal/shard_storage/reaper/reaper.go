@@ -98,6 +98,21 @@ func (r *Reaper) garbageCollector() {
 
 		// Check if it's expired
 		if nowUnix > params.ExpiresAt {
+			// if there are no qualifiers, we should delete the entire family
+			if len(params.Qualifiers) == 0 {
+				log.Debug().Msgf("Deleting entire family %s for row %s", params.Family, params.RowKey)
+				// Delete the entire family
+				if deleted := r.storageManager.DeleteRowFamily(params.RowKey,
+					params.Family); deleted {
+					removed++
+					// if deleted, we need to report this change to the snapshot server
+					r.storageManager.MarkRowChanged(params.Family, params.RowKey)
+				} else {
+					log.Debug().Msgf("Failed to delete family %s for row %s", params.Family, params.RowKey)
+				}
+				continue
+			}
+			
 			// Process the tombstone for this entry
 			if deleted := r.didDeleteTombstone(&params); deleted {
 				removed++

@@ -9,7 +9,7 @@ import (
 )
 
 func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]byte,
-	timestamp int64, expiresAt *int64) error {
+	timestamp int64, expiresAt int64) error {
 	// Check if the family is allowed
 	if !m.IsFamilyAllowed(family) {
 		return fmt.Errorf("column family not allowed: %s", family)
@@ -50,7 +50,7 @@ func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]b
 		// If we have an expiration time, mark as tombstone
 		// TODO: fix this bug. If we add a tombstone to a qualifier,
 		//  it won't return from call - duh!
-		if expiresAt != nil {
+		if expiresAt > 0 {
 			newValue.IsTombstone = true
 			newValue.ExpiresAt = expiresAt
 		}
@@ -72,14 +72,14 @@ func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]b
 	}
 
 	// Handle garbage collection if an expiresAt time is passed
-	if expiresAt != nil {
+	if expiresAt > 0 {
 		log.Debug().Msg("calling reaper on write operation")
 		m.reaper.Reap(&reaper.ReapParams{
 			RowKey:     rowKey,
 			Family:     family,
 			Qualifiers: qualifiers,
 			Timestamp:  timestamp,
-			ExpiresAt:  *expiresAt,
+			ExpiresAt:  expiresAt,
 		})
 	}
 

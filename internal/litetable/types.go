@@ -22,7 +22,7 @@ type TimestampedValue struct {
 	Value       []byte `json:"value"`
 	Timestamp   int64  `json:"timestamp"`
 	IsTombstone bool   `json:"tombstone,omitempty"` // if the value is slated for deletion
-	ExpiresAt   *int64 `json:"expiresAt,omitempty"` // the time in which the value will expire
+	ExpiresAt   int64  `json:"expiresAt,omitempty"` // the time in which the value will expire
 }
 
 // VersionedQualifier maps qualifiers to their timestamped values

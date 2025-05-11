@@ -7,7 +7,6 @@ import (
 	"github.com/litetable/litetable-db/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
 )
 
 func (l *litetable) validateDelete(msg *proto.DeleteRequest) error {
@@ -28,25 +27,29 @@ func (l *litetable) Delete(ctx context.Context, msg *proto.DeleteRequest) (*prot
 	}
 
 	// Ex: DELETE family="family" rowKey="rowKey" qualifier="qualifier"
-	queryStr := "family=" + msg.GetFamily()
-	queryStr += " key=" + msg.GetRowKey()
+	queryStr := "key=" + msg.GetRowKey()
+
+	if msg.GetFamily() != "" {
+		queryStr += " family=" + msg.GetFamily()
+	}
 
 	for _, qualifier := range msg.GetQualifiers() {
 		queryStr += " qualifier=" + qualifier
 	}
 
 	// The timestamp signals where we should place the tombstone
-	if msg.GetTimestampUnix() > 0 {
-		// convert time to UTC time
-		timestamp := time.Unix(0, msg.GetTimestampUnix()).UTC().Format(time.RFC3339)
-		queryStr += " timestamp=" + timestamp
+	fromTS := msg.GetTimestampUnix()
+	if fromTS > 0 {
+		queryStr += " timestamp=" + fmt.Sprintf("%d", fromTS)
 	}
 
 	// TTL is expected to be a int32 that ='s the number of seconds till garbage collection
-	if msg.GetTtl() > 0 {
-		queryStr += " ttl=" + fmt.Sprintf("%d", msg.GetTtl())
+	ttl := msg.GetTtl()
+	if ttl > 0 {
+		queryStr += " ttl=" + fmt.Sprintf("%d", ttl)
 	}
 
+	fmt.Println("Delete query string:", queryStr)
 	if err := l.operations.Delete(queryStr); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete data: %v", err)
 	}

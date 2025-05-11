@@ -32,8 +32,8 @@ func convertToProtoData(rows map[string]*litetable2.Row) *proto.LitetableData {
 						TimestampUnix: tv.Timestamp,
 					}
 
-					if tv.ExpiresAt != nil {
-						protoTv.ExpiresAtUnix = *tv.ExpiresAt
+					if tv.ExpiresAt == 0 {
+						protoTv.ExpiresAtUnix = tv.ExpiresAt
 					}
 
 					qualifierValues.Values = append(qualifierValues.Values, protoTv)

@@ -121,9 +121,9 @@ type writeQuery struct {
 	qualifiers []string
 	values     [][]byte
 	timestamp  int64
-	expiresAt  *int64
+	expiresAt  int64
 	// ttl is the time the row should no longer be relevant from the time written
-	ttl *int64
+	ttl int64
 }
 
 // parseWriteQuery parses a write query string into a structured form
@@ -133,8 +133,8 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 		qualifiers: []string{},
 		values:     [][]byte{},
 		timestamp:  time.Now().UnixNano(),
-		expiresAt:  nil,
-		ttl:        nil,
+		expiresAt:  0,
+		ttl:        0,
 	}
 
 	for _, part := range parts {
@@ -166,10 +166,10 @@ func parseWriteQuery(input string) (*writeQuery, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid ttl value: %s", value)
 			}
-			parsed.ttl = &ttlSec
+			parsed.ttl = ttlSec
 			// expires at should be the write time + ttl
 			expiresAtTimestamp := parsed.timestamp + ttlSec
-			parsed.expiresAt = &expiresAtTimestamp
+			parsed.expiresAt = expiresAtTimestamp
 		}
 	}
 

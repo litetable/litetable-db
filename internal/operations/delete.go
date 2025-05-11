@@ -42,18 +42,18 @@ type deleteQuery struct {
 	qualifiers []string
 	timestamp  int64 // this is either the current time or the provided timestamp
 	ttl        int64
-	expiresAt  *int64
+	expiresAt  int64
 }
 
 func parseDeleteQuery(input string) (*deleteQuery, error) {
 	parts := strings.Fields(input)
 	now := time.Now()
-	defaultExpiresAt := now.Add(time.Hour).Unix()
+	defaultExpiresAt := now.Add(time.Hour).UnixNano()
 	parsed := &deleteQuery{
 		qualifiers: []string{},
 		ttl:        3600,
 		timestamp:  now.UnixNano(),
-		expiresAt:  &defaultExpiresAt,
+		expiresAt:  defaultExpiresAt,
 	}
 
 	for _, part := range parts {
@@ -84,18 +84,16 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 				return nil, fmt.Errorf("invalid ttl value: %s", value)
 			}
 			parsed.ttl = ttlSec
+
+			ttlNanos := parsed.ttl * 1_000_000_000
+			ttlTime := parsed.timestamp + ttlNanos
+			parsed.expiresAt = ttlTime
+
 		default:
 			return nil, fmt.Errorf("unknown parameter: %s", key)
 		}
 	}
-
-	// if TTL was provided, calculate the expiresAt time based on timestamp based on nano seconds
-	if parsed.ttl > 0 {
-		ttlNanos := parsed.ttl * 1_000_000_000
-		ttlTime := parsed.timestamp + ttlNanos
-		parsed.expiresAt = &ttlTime
-	}
-
+	
 	// Validate required fields
 	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")

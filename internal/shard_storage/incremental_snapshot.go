@@ -136,6 +136,29 @@ func (m *Manager) createIncrementalSnapshotData(time int64) *snapShopData {
 		sh.mutex.RUnlock()
 	}
 
+	// Clean up empty rows before returning
+	for rowKey, rowFamilies := range snap.SnapshotData {
+		if rowFamilies == nil || len(*rowFamilies) == 0 {
+			fmt.Printf("row %s has no families, removing from snapshot\n", rowKey)
+			delete(snap.SnapshotData, rowKey)
+			continue
+		}
+
+		// Check if any families have qualifiers with data
+		isEmpty := true
+		for _, qualifiers := range *rowFamilies {
+			if len(qualifiers) > 0 {
+				isEmpty = false
+				break
+			}
+		}
+
+		// Remove row if it's empty
+		if isEmpty {
+			delete(snap.SnapshotData, rowKey)
+		}
+	}
+
 	return snap
 }
 
@@ -282,6 +305,27 @@ func (m *Manager) snapshotMerge() error {
 		}
 	}
 
+	// Clean up any row entries that are completely empty objects
+	for rowKey, columnFamilies := range loadedData {
+		if len(columnFamilies) == 0 {
+			delete(loadedData, rowKey)
+			continue
+		}
+
+		// Check if all families are empty
+		allEmpty := true
+		for _, qualifiers := range columnFamilies {
+			if len(qualifiers) > 0 {
+				allEmpty = false
+				break
+			}
+		}
+
+		if allEmpty {
+			delete(loadedData, rowKey)
+		}
+	}
+
 	// Process tombstones to remove tombstoned data
 	m.processTombstones(&loadedData)
 
@@ -324,7 +368,7 @@ func (m *Manager) processTombstones(data *litetable.Data) {
 				// or keep it only if the tombstone hasn't expired yet
 				if len(values) > 0 && values[0].IsTombstone {
 					// If the tombstone is expired, remove the entire qualifier
-					if *values[0].ExpiresAt < now {
+					if values[0].ExpiresAt < now {
 						delete(qualifiers, qualifierName)
 					}
 				}

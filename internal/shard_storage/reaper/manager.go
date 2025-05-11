@@ -17,6 +17,7 @@ const (
 
 type storage interface {
 	GetRowByFamily(key, family string) (*litetable.Data, bool)
+	DeleteRowFamily(rowKey, family string) bool
 	DeleteExpiredTombstones(rowKey, family string, qualifiers []string, timestamp int64) bool
 	MarkRowChanged(family, rowKey string)
 }
@@ -103,6 +104,11 @@ func (r *Reaper) Start() error {
 }
 
 func (r *Reaper) Stop() error {
+	// kill the process context
+	if r.cancel != nil {
+		r.cancel()
+	}
+	
 	// Stop the reaper collection
 	close(r.collector)
 

@@ -22,9 +22,9 @@ type shardManager interface {
 	UpdateFamilies(families []string) error
 
 	Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp int64,
-		expiresAt *int64) error
+		expiresAt int64) error
 	Delete(key, family string, qualifiers []string, timestamp int64,
-		expiresAt *int64) error
+		expiresAt int64) error
 }
 
 type cdc interface {

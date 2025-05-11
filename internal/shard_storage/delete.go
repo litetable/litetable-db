@@ -10,7 +10,7 @@ import (
 )
 
 func (m *Manager) Delete(key, family string, qualifiers []string, timestamp int64,
-	expiresAt *int64) error {
+	expiresAt int64) error {
 	// find the shard index
 	shardKey := m.getShardIndex(key)
 
@@ -56,7 +56,7 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp int6
 			return fmt.Errorf("family %s not found on key: %s", family, key)
 		}
 
-		// if there are no provided qualifers, we should mark the whole family for deletion
+		// if there are no provided qualifiers, we should mark the whole family for deletion
 		if len(qualifiers) == 0 {
 			// Mark entire family for deletion
 			for q := range fam {
@@ -96,7 +96,7 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp int6
 		Family:     family,
 		Qualifiers: qualifiers,
 		Timestamp:  timestamp,
-		ExpiresAt:  *expiresAt,
+		ExpiresAt:  expiresAt,
 	})
 	return nil
 }
@@ -110,7 +110,7 @@ func (m *Manager) addTombstone(
 	family,
 	qualifier string,
 	timestamp int64,
-	expiresAt *int64,
+	expiresAt int64,
 ) {
 	values := row[family][qualifier]
 
@@ -212,4 +212,28 @@ func (m *Manager) DeleteExpiredTombstones(rowKey, family string, qualifiers []st
 	}
 
 	return changed
+}
+
+func (m *Manager) DeleteRowFamily(rowKey, family string) bool {
+	// find the shard index
+	shardKey := m.getShardIndex(rowKey)
+
+	// get the shard
+	s := m.shardMap[shardKey]
+
+	// lock the shard
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// check if the row exists
+	row, exists := s.data[rowKey]
+	if !exists {
+		return true
+	}
+
+	// delete the family
+	delete(row, family)
+
+	log.Debug().Msgf("successfully deleted family %s from row %s", family, rowKey)
+	return true
 }
