@@ -12,17 +12,22 @@ import (
 
 // Server implements the app.Dependency interface for a gRPC server
 type Server struct {
-	server *grpc2.Server
-	port   int
+	address string
+	server  *grpc2.Server
+	port    int
 }
 
 type Config struct {
+	Address    string
 	Port       int
 	Operations operations
 }
 
 func (c *Config) validate() error {
 	var errGrp []error
+	if c.Address == "" {
+		errGrp = append(errGrp, fmt.Errorf("address required"))
+	}
 	if c.Port == 0 {
 		errGrp = append(errGrp, fmt.Errorf("port required"))
 	}
@@ -50,18 +55,19 @@ func NewServer(cfg *Config) (*Server, error) {
 
 	reflection.Register(srv)
 	return &Server{
-		server: srv,
-		port:   cfg.Port,
+		address: cfg.Address,
+		server:  srv,
+		port:    cfg.Port,
 	}, nil
 }
 
 func (s *Server) Start() error {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.address, s.port))
 	if err != nil {
 		return fmt.Errorf("failed to listen on port %d: %w", s.port, err)
 	}
 
-	log.Info().Msgf("gRPC server listening on port %d", s.port)
+	log.Info().Msgf("gRPC server listening at %s:%d", s.address, s.port)
 
 	// Start server in a goroutine
 	go func() {

@@ -70,7 +70,7 @@ func initialize() (*app.App, error) {
 
 	cdcEmitter, err := cdc_emitter.New(&cdc_emitter.Config{
 		Port:    32496, // all CDC events will be sent to this port
-		Address: cfg.ServerAddress,
+		Address: cfg.Server.Address,
 	})
 	if err != nil {
 		return nil, err
@@ -119,22 +119,17 @@ func initialize() (*app.App, error) {
 	deps = append(deps, engineHandler)
 
 	// create a LiteTable server
-	srv, err := server.New(&server.Config{
-		Certificate: &cert,
-		Port:        cfg.ServerPort,
-		Address:     cfg.ServerAddress,
-		Handler:     engineHandler,
-	})
+	cfg.Server.Certificate = &cert
+	cfg.Server.Handler = engineHandler
+	srv, err := server.New(&cfg.Server)
 	if err != nil {
 		return nil, err
 	}
 	deps = append(deps, srv)
 
 	// create the gRPC server
-	grpcServer, err := grpc.NewServer(&grpc.Config{
-		Port:       50050,
-		Operations: opsManager,
-	})
+	cfg.GRPCServer.Operations = opsManager
+	grpcServer, err := grpc.NewServer(&cfg.GRPCServer)
 	if err != nil {
 		return nil, err
 	}
