@@ -18,6 +18,13 @@ func (l *litetable) validateDelete(msg *proto.DeleteRequest) error {
 		errGrp = append(errGrp, status.Errorf(codes.InvalidArgument, "rowKey required"))
 	}
 
+	// FIXME: for now, the delete without qualifiers isn't persisting during snapshots. For now,
+	// we will require at least one qualifier to be specified. Deleting all qualifiers would
+	// successfully remove the family, and if the family is the last one, it will remove the row.
+	if len(msg.GetQualifiers()) == 0 {
+		errGrp = append(errGrp, status.Errorf(codes.InvalidArgument, "at least one qualifier required"))
+	}
+
 	return errors.Join(errGrp...)
 }
 
