@@ -169,6 +169,7 @@ func (m *Manager) createIncrementalSnapshotData(time int64) *snapShopData {
 // Data backup is eventually consistent and works with the reaper GC to keep data in sync.
 func (m *Manager) snapshotMerge() error {
 	start := time.Now()
+
 	snapshotFiles, err := filepath.Glob(filepath.Join(m.snapshotDir, snapshotFileGlob))
 	if err != nil {
 		return fmt.Errorf("failed to list incremental snapshot files: %w", err)
@@ -178,116 +179,27 @@ func (m *Manager) snapshotMerge() error {
 		return nil
 	}
 	sort.Strings(snapshotFiles)
-	mergedData := make(litetable.Data)
 
-	// Merge incremental snapshots
-	for _, file := range snapshotFiles {
-		fileData, err := os.ReadFile(file)
-		if err != nil {
-			return fmt.Errorf("failed to read snapshot file %s: %w", file, err)
-		}
-		var snapshot snapShopData
-		if err := json.Unmarshal(fileData, &snapshot); err != nil {
-			return fmt.Errorf("failed to unmarshal snapshot file %s: %w", file, err)
-		}
-		if snapshot.SnapshotData == nil {
-			continue
-		}
-
-		for rowKey, columnFamilies := range snapshot.SnapshotData {
-			if columnFamilies == nil {
-				continue
-			}
-			if _, exists := mergedData[rowKey]; !exists {
-				mergedData[rowKey] = make(map[string]litetable.VersionedQualifier)
-			}
-			for familyName, qualifiers := range *columnFamilies {
-				if _, exists := mergedData[rowKey][familyName]; !exists {
-					mergedData[rowKey][familyName] = make(litetable.VersionedQualifier)
-				}
-				for qualifier, values := range qualifiers {
-					mergedData[rowKey][familyName][qualifier] = values
-				}
-			}
-		}
-	}
-
-	latestBackup, err := m.getLatestBackup()
+	now := time.Now().UnixNano()
+	mergedData, err := m.mergeIncrementalSnapshots(snapshotFiles, now)
 	if err != nil {
-		return fmt.Errorf("failed to get latest backup: %w", err)
+		return err
 	}
 
-	// No prior backup, save new
-	if latestBackup == "" {
-		m.processTombstones(&mergedData)
-		cleanupEmptyRows(&mergedData)
-		return m.saveBackup(&mergedData)
-	}
-
-	// Merge with existing backup
-	dataBytes, err := os.ReadFile(latestBackup)
+	loadedData, err := m.loadLatestBackup()
 	if err != nil {
-		return fmt.Errorf("failed to read snapshot %s: %w", latestBackup, err)
+		return err
 	}
 
-	var loadedData litetable.Data
-	if err = json.Unmarshal(dataBytes, &loadedData); err != nil {
-		return fmt.Errorf("failed to parse snapshot %s: %w", latestBackup, err)
-	}
+	m.mergeIntoBackup(loadedData, mergedData, now)
 
-	// Merge mergedData into loadedData
-	for rowKey, columnFamilies := range mergedData {
-		if columnFamilies == nil {
-			continue
-		}
-		if _, exists := loadedData[rowKey]; !exists {
-			loadedData[rowKey] = make(map[string]litetable.VersionedQualifier)
-		}
-		for familyName, qualifiers := range columnFamilies {
-			if _, exists := loadedData[rowKey][familyName]; !exists {
-				loadedData[rowKey][familyName] = make(litetable.VersionedQualifier)
-			}
-			for qualifier, newValues := range qualifiers {
-				// Merge by timestamp
-				existing := loadedData[rowKey][familyName][qualifier]
-				timestampMap := make(map[int64]litetable.TimestampedValue)
-				for _, v := range existing {
-					timestampMap[v.Timestamp] = v
-				}
-				for _, v := range newValues {
-					timestampMap[v.Timestamp] = v
-				}
-				var merged []litetable.TimestampedValue
-				for _, v := range timestampMap {
-					merged = append(merged, v)
-				}
-				sort.Slice(merged, func(i, j int) bool {
-					return merged[i].Timestamp > merged[j].Timestamp
-				})
-				loadedData[rowKey][familyName][qualifier] = merged
-			}
-		}
-	}
-
-	// Process tombstones and clean empty structures
-	m.processTombstones(&loadedData)
-	cleanupEmptyRows(&loadedData)
-
-	// Save new backup
-	if err = m.saveBackup(&loadedData); err != nil {
+	if err := m.saveBackup(&loadedData); err != nil {
 		return fmt.Errorf("failed to save backup: %w", err)
 	}
 
-	// Clean up snapshot files
-	for _, file := range snapshotFiles {
-		if err = os.Remove(file); err != nil {
-			log.Error().Err(err).Msgf("Failed to remove old snapshot: %s", file)
-		} else {
-			log.Debug().Msgf("Pruned old snapshot: %s", file)
-		}
-	}
+	m.cleanupSnapshots(snapshotFiles)
 
-	log.Debug().Str("duration", time.Since(start).String()).Msg("incremental snapshot merge complete")
+	log.Debug().Str("duration", time.Since(start).String()).Msg("snapshot merge complete")
 	return nil
 }
 
@@ -329,20 +241,161 @@ func (m *Manager) processTombstones(data *litetable.Data) {
 	}
 }
 
-func cleanupEmptyRows(data *litetable.Data) {
-	for rowKey, families := range *data {
-		for familyName, qualifiers := range families {
-			for qualifier, values := range qualifiers {
-				if len(values) == 0 {
-					delete(qualifiers, qualifier)
-				}
+// func cleanupEmptyRows(data *litetable.Data) {
+// 	for rowKey, families := range *data {
+// 		for familyName, qualifiers := range families {
+// 			for qualifier, values := range qualifiers {
+// 				if len(values) == 0 {
+// 					delete(qualifiers, qualifier)
+// 				}
+// 			}
+// 			if len(qualifiers) == 0 {
+// 				delete(families, familyName)
+// 			}
+// 		}
+// 		if len(families) == 0 {
+// 			delete(*data, rowKey)
+// 		}
+// 	}
+// }
+
+// mergeIncrementalSnapshots reads and filters snapshot files into a single cleaned Data structure.
+func (m *Manager) mergeIncrementalSnapshots(files []string, now int64) (litetable.Data, error) {
+	merged := make(litetable.Data)
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read snapshot %s: %w", file, err)
+		}
+		var snap snapShopData
+		if err := json.Unmarshal(data, &snap); err != nil {
+			return nil, fmt.Errorf("failed to parse snapshot %s: %w", file, err)
+		}
+		if snap.SnapshotData == nil {
+			continue
+		}
+
+		for rowKey, families := range snap.SnapshotData {
+			if families == nil {
+				continue
 			}
-			if len(qualifiers) == 0 {
-				delete(families, familyName)
+
+			for familyName, qualifiers := range *families {
+				cleanedQualifiers := filterLiveQualifiers(qualifiers, now)
+				if len(cleanedQualifiers) == 0 {
+					continue
+				}
+
+				if _, ok := merged[rowKey]; !ok {
+					merged[rowKey] = make(map[string]litetable.VersionedQualifier)
+				}
+				merged[rowKey][familyName] = cleanedQualifiers
 			}
 		}
-		if len(families) == 0 {
-			delete(*data, rowKey)
+	}
+	return merged, nil
+}
+
+// filterLiveQualifiers removes expired tombstones and empty qualifiers.
+func filterLiveQualifiers(qualifiers litetable.VersionedQualifier, now int64) litetable.VersionedQualifier {
+	cleaned := make(litetable.VersionedQualifier)
+	for qualifier, values := range qualifiers {
+		var live []litetable.TimestampedValue
+		for _, val := range values {
+			if !val.IsTombstone || val.ExpiresAt > now {
+				live = append(live, val)
+			}
+		}
+		if len(live) > 0 {
+			cleaned[qualifier] = live
+		}
+	}
+	return cleaned
+}
+
+// loadLatestBackup attempts to read and parse the latest backup file.
+func (m *Manager) loadLatestBackup() (litetable.Data, error) {
+	latest, err := m.getLatestBackup()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest backup: %w", err)
+	}
+	if latest == "" {
+		return make(litetable.Data), nil
+	}
+
+	data, err := os.ReadFile(latest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read backup %s: %w", latest, err)
+	}
+
+	var parsed litetable.Data
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal backup %s: %w", latest, err)
+	}
+	return parsed, nil
+}
+
+// mergeIntoBackup merges cleaned snapshot data into the loaded backup.
+func (m *Manager) mergeIntoBackup(dest, src litetable.Data, now int64) {
+	for rowKey, families := range src {
+		if _, exists := dest[rowKey]; !exists {
+			dest[rowKey] = make(map[string]litetable.VersionedQualifier)
+		}
+		for familyName, qualifiers := range families {
+			if _, exists := dest[rowKey][familyName]; !exists {
+				dest[rowKey][familyName] = make(litetable.VersionedQualifier)
+			}
+			for qualifier, newVals := range qualifiers {
+				existing := dest[rowKey][familyName][qualifier]
+				merged := mergeAndDedupValues(existing, newVals, now)
+
+				if len(merged) > 0 {
+					dest[rowKey][familyName][qualifier] = merged
+				} else {
+					delete(dest[rowKey][familyName], qualifier)
+				}
+			}
+			if len(dest[rowKey][familyName]) == 0 {
+				delete(dest[rowKey], familyName)
+			}
+		}
+		if len(dest[rowKey]) == 0 {
+			delete(dest, rowKey)
+		}
+	}
+}
+
+// mergeAndDedupValues combines old and new values by timestamp and removes expired tombstones.
+func mergeAndDedupValues(existing, incoming []litetable.TimestampedValue, now int64) []litetable.TimestampedValue {
+	tmap := make(map[int64]litetable.TimestampedValue)
+	for _, v := range existing {
+		tmap[v.Timestamp] = v
+	}
+	for _, v := range incoming {
+		tmap[v.Timestamp] = v
+	}
+
+	var final []litetable.TimestampedValue
+	for _, val := range tmap {
+		if !val.IsTombstone || val.ExpiresAt > now {
+			final = append(final, val)
+		}
+	}
+
+	sort.Slice(final, func(i, j int) bool {
+		return final[i].Timestamp > final[j].Timestamp
+	})
+	return final
+}
+
+// cleanupSnapshots deletes the merged snapshot files from disk.
+func (m *Manager) cleanupSnapshots(files []string) {
+	for _, file := range files {
+		if err := os.Remove(file); err != nil {
+			log.Error().Err(err).Msgf("Failed to remove snapshot: %s", file)
+		} else {
+			log.Debug().Msgf("Removed merged snapshot: %s", file)
 		}
 	}
 }
