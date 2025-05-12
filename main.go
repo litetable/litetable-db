@@ -6,6 +6,7 @@ import (
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/config"
 	"github.com/litetable/litetable-db/internal/operations"
+	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/server/grpc"
 	"github.com/litetable/litetable-db/internal/shard_storage"
 
@@ -59,7 +60,7 @@ func initialize() (*app.App, error) {
 
 	cdcEmitter, err := cdc_emitter.New(&cdc_emitter.Config{
 		Port:    32496, // all CDC events will be sent to this port
-		Address: cfg.ServerAddress,
+		Address: cfg.Server.Address,
 	})
 	if err != nil {
 		return nil, err
@@ -106,6 +107,12 @@ func initialize() (*app.App, error) {
 	}
 	deps = append(deps, grpcServer)
 
+	httpSrv, err := server.New(&cfg.Server)
+	if err != nil {
+		return nil, err
+	}
+
+	deps = append(deps, httpSrv)
 	application, err := app.CreateApp(&app.Config{
 		ServiceName: "LiteTable DB",
 		StopTimeout: 30,
