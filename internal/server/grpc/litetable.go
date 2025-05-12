@@ -6,6 +6,7 @@ import (
 )
 
 type operations interface {
+	CreateFamilies(families []string) error
 	Read(query string) (map[string]*litetable2.Row, error)
 	Write(query string) (map[string]*litetable2.Row, error)
 	Delete(query string) error
