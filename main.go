@@ -2,13 +2,10 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"github.com/litetable/litetable-db/internal/app"
 	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/config"
-	"github.com/litetable/litetable-db/internal/engine"
 	"github.com/litetable/litetable-db/internal/operations"
-	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/server/grpc"
 	"github.com/litetable/litetable-db/internal/shard_storage"
 
@@ -60,17 +57,9 @@ func initialize() (*app.App, error) {
 	// get the filepath
 	certDir := filepath.Join(homeDir, defaultDir)
 
-	// load the TLS certificate and key, ideally this is configuration based on deployments, but
-	// for now we can roll with it.
-	// TODO: make certificate requirements configurable
-	cert, err := tls.LoadX509KeyPair(certDir+"/"+defaultServerCert, certDir+"/"+defaultServerKey)
-	if err != nil {
-		return nil, err
-	}
-
 	cdcEmitter, err := cdc_emitter.New(&cdc_emitter.Config{
 		Port:    32496, // all CDC events will be sent to this port
-		Address: cfg.Server.Address,
+		Address: cfg.ServerAddress,
 	})
 	if err != nil {
 		return nil, err
@@ -108,24 +97,6 @@ func initialize() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// create the litetable engine
-	engineHandler, err := engine.New(&engine.Config{
-		OperationManager: opsManager,
-	})
-	if err != nil {
-		return nil, err
-	}
-	deps = append(deps, engineHandler)
-
-	// create a LiteTable server
-	cfg.Server.Certificate = &cert
-	cfg.Server.Handler = engineHandler
-	srv, err := server.New(&cfg.Server)
-	if err != nil {
-		return nil, err
-	}
-	deps = append(deps, srv)
 
 	// create the gRPC server
 	cfg.GRPCServer.Operations = opsManager

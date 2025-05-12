@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"regexp"
@@ -69,67 +68,6 @@ func (m *Manager) Read(query string) (map[string]*litetable.Row, error) {
 	}
 
 	return r, nil
-}
-
-// read applies a read query over a datasource following the Litetable protocol.
-func (m *Manager) read(query []byte) ([]byte, error) {
-	// Parse the query
-	parsed, err := parseRead(string(query))
-	if err != nil {
-		return nil, err
-	}
-
-	if !m.shardStorage.IsFamilyAllowed(parsed.family) {
-		return nil, fmt.Errorf("column family does not exist: %s", parsed.family)
-	}
-
-	// Alt case 1: Row key prefix filtering
-	if parsed.rowKeyPrefix != "" {
-		d, found := m.shardStorage.FilterRowsByPrefix(parsed.rowKeyPrefix)
-		if !found {
-			return nil, fmt.Errorf("no rows found with prefix: %s", parsed.rowKeyPrefix)
-		}
-
-		result := parsed.processFilteredData(*d)
-		if len(result) == 0 {
-			return nil, fmt.Errorf("no matching rows found with prefix: %s", parsed.rowKeyPrefix)
-		}
-		return json.Marshal(result)
-	}
-
-	// Alt case 2: Row key regex matching
-	if parsed.rowKeyRegex != "" {
-		data, found := m.shardStorage.FilterRowsByRegex(parsed.rowKeyRegex)
-		if !found {
-			return nil, fmt.Errorf("no rows found matching regex: %s", parsed.rowKeyRegex)
-		}
-
-		result := parsed.processFilteredData(*data)
-		if len(result) == 0 {
-			return nil, fmt.Errorf("no matching rows found with regex: %s", parsed.rowKeyRegex)
-
-		}
-
-		return json.Marshal(result)
-	}
-
-	// default to read by rowKey:
-	data, exists := m.shardStorage.GetRowByFamily(parsed.rowKey, parsed.family)
-	if !exists {
-		return nil, fmt.Errorf("row not found: %s", parsed.rowKey)
-	}
-
-	// Create a proper Row structure with the data
-	row, err := parsed.readRowKey(data)
-	if err != nil {
-		return nil, err
-	}
-
-	r := map[string]*litetable.Row{
-		row.Key: row,
-	}
-
-	return json.Marshal(r)
 }
 
 // readQuery are the parameters for any supported read query

@@ -2,29 +2,24 @@ package operations
 
 import (
 	"fmt"
+	"github.com/litetable/litetable-db/internal/litetable"
+	wal2 "github.com/litetable/litetable-db/internal/shard_storage/wal"
 	"strconv"
 	"strings"
 	"time"
 )
 
 func (m *Manager) Delete(query string) error {
+	if err := m.writeAhead.Apply(&wal2.Entry{
+		Operation: litetable.OperationDelete,
+		Query:     []byte(query),
+		Timestamp: time.Now(),
+	}); err != nil {
+		return err
+	}
+
 	// Parse the query
 	parsed, err := parseDeleteQuery(query)
-	if err != nil {
-		return err
-	}
-
-	err = m.shardStorage.Delete(parsed.rowKey, parsed.family, parsed.qualifiers, parsed.timestamp, parsed.expiresAt)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// delete marks data for garbage collection by placing tombstones in the column qualifier.
-func (m *Manager) delete(query []byte) error {
-	// Parse the query
-	parsed, err := parseDeleteQuery(string(query))
 	if err != nil {
 		return err
 	}
@@ -93,7 +88,7 @@ func parseDeleteQuery(input string) (*deleteQuery, error) {
 			return nil, fmt.Errorf("unknown parameter: %s", key)
 		}
 	}
-	
+
 	// Validate required fields
 	if parsed.rowKey == "" {
 		return nil, fmt.Errorf("missing key")

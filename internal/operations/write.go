@@ -1,9 +1,9 @@
 package operations
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
+	wal2 "github.com/litetable/litetable-db/internal/shard_storage/wal"
 	"net/url"
 	"strconv"
 	"strings"
@@ -11,6 +11,14 @@ import (
 )
 
 func (m *Manager) Write(query string) (map[string]*litetable.Row, error) {
+	if err := m.writeAhead.Apply(&wal2.Entry{
+		Operation: litetable.OperationWrite,
+		Query:     []byte(query),
+		Timestamp: time.Now(),
+	}); err != nil {
+		return nil, err
+	}
+
 	// Parse the query
 	parsed, err := parseWriteQuery(query)
 	if err != nil {
@@ -55,60 +63,6 @@ func (m *Manager) Write(query string) (map[string]*litetable.Row, error) {
 	}
 
 	return result, nil
-}
-
-// Write processes a mutation to update the data store; this is an append-only operation
-//
-// When writing a row, the following condition must be true:
-// 1. The family must be allowed in the table
-//
-// When writing to a row, an expiration time can be set for the row; this is called a tombstone.
-// Any data written before the tombstone will also be garbage collected.
-func (m *Manager) write(query []byte) ([]byte, error) {
-	// Parse the query
-	parsed, err := parseWriteQuery(string(query))
-	if err != nil {
-		return nil, err
-	}
-
-	// Use the shard_storage Apply method to write data
-	err = m.shardStorage.Apply(
-		parsed.rowKey,
-		parsed.family,
-		parsed.qualifiers,
-		parsed.values,
-		parsed.timestamp,
-		parsed.expiresAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// The data has been saved, now let's just return what's written
-	// Create response with all written values
-	row := &litetable.Row{
-		Key:     parsed.rowKey,
-		Columns: make(map[string]litetable.VersionedQualifier),
-	}
-	row.Columns[parsed.family] = make(litetable.VersionedQualifier)
-
-	for i, qualifier := range parsed.qualifiers {
-		timestampedValue := litetable.TimestampedValue{
-			Value:     parsed.values[i],
-			Timestamp: parsed.timestamp,
-		}
-
-		// Store result
-		values := []litetable.TimestampedValue{timestampedValue}
-		row.Columns[parsed.family][qualifier] = values
-
-	}
-
-	result := map[string]*litetable.Row{
-		row.Key: row,
-	}
-
-	return json.Marshal(result)
 }
 
 // writeQuery are the possible values to be passed in the query that manipulate the write

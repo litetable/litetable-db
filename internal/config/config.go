@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/server/grpc"
 	"os"
 	"path/filepath"
@@ -17,7 +16,8 @@ const (
 )
 
 type Config struct {
-	Server                 server.Config
+	ServerAddress          string
+	ServerPort             string
 	GarbageCollectionTimer int
 	BackupTimer            int
 	SnapshotTimer          int
@@ -65,10 +65,10 @@ func NewConfig() (*Config, error) {
 
 		switch key {
 		case "server_address":
-			config.Server.Address = value
+			config.ServerAddress = value
 			config.GRPCServer.Address = value
 		case "server_port":
-			config.Server.Port = value
+			config.ServerPort = value
 		case "server_rpc_port":
 			config.GRPCServer.Port, err = strconv.Atoi(value)
 			if err != nil {
