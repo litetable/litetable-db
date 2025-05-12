@@ -3,7 +3,6 @@ package operations
 import (
 	"fmt"
 	"github.com/litetable/litetable-db/internal/litetable"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,117 +207,6 @@ func (r *readQuery) readRowKey(data *litetable.Data) (*litetable.Row, error) {
 	}
 
 	return result, nil
-}
-
-// filterRowsByPrefix reads from all rows with the specified prefix and returns the requested data.
-// If the latest filter is provided in the query, it will return only the latest N versions of all
-// qualifiers in the family.
-func (r *readQuery) filterRowsByPrefix(data *litetable.Data) (map[string]*litetable.Row, error) {
-	results := make(map[string]*litetable.Row)
-
-	for rowKey, rowData := range *data {
-		prefixMatch := strings.HasPrefix(rowKey, r.rowKeyPrefix)
-		if prefixMatch {
-			// Skip rows that don't have the requested family
-			family, exists := rowData[r.family]
-			if !exists {
-				continue
-			}
-
-			// Create result container for this row
-			result := &litetable.Row{
-				Key:     rowKey,
-				Columns: make(map[string]litetable.VersionedQualifier),
-			}
-			result.Columns[r.family] = make(litetable.VersionedQualifier)
-
-			// If no qualifiers specified, return all qualifiers in the family
-			if len(r.qualifiers) == 0 {
-				for qualifier, values := range family {
-					filteredValues := r.getLatestN(values, r.latest)
-					// Only add qualifier if it has values after tombstone filtering
-					if len(filteredValues) > 0 {
-						result.Columns[r.family][qualifier] = filteredValues
-					}
-				}
-			} else {
-				// Return only requested qualifiers
-				for _, qualifier := range r.qualifiers {
-					values, exists := family[qualifier]
-					if !exists {
-						continue // Skip non-existing qualifiers
-					}
-					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
-				}
-			}
-
-			results[rowKey] = result
-		}
-	}
-
-	if len(results) == 0 {
-		return nil, fmt.Errorf("no rows found with prefix: %s", r.rowKeyPrefix)
-	}
-
-	return results, nil
-}
-
-// filterRowsByRegex reads from all rows matching the specified regex and returns the requested
-// data.
-// If the latest filter is provided in the query, it will return only the latest N versions of all
-// qualifiers in the family.
-func (r *readQuery) filterRowsByRegex(data *litetable.Data) (map[string]*litetable.Row, error) {
-	regex, err := regexp.Compile(r.rowKeyRegex)
-	if err != nil {
-		return nil, fmt.Errorf("invalid regex pattern: %w", err)
-	}
-
-	results := make(map[string]*litetable.Row)
-
-	for rowKey, rowData := range *data {
-		if regex.MatchString(rowKey) {
-			// Skip rows that don't have the requested family
-			family, exists := rowData[r.family]
-			if !exists {
-				continue
-			}
-
-			// Create result container for this row
-			result := &litetable.Row{
-				Key:     rowKey,
-				Columns: make(map[string]litetable.VersionedQualifier),
-			}
-			result.Columns[r.family] = make(litetable.VersionedQualifier)
-
-			// If no qualifiers specified, return all qualifiers in the family
-			if len(r.qualifiers) == 0 {
-				for qualifier, values := range family {
-					filteredValues := r.getLatestN(values, r.latest)
-					// Only add qualifier if it has values after tombstone filtering
-					if len(filteredValues) > 0 {
-						result.Columns[r.family][qualifier] = filteredValues
-					}
-				}
-			} else {
-				// Return only requested qualifiers
-				for _, qualifier := range r.qualifiers {
-					values, exists := family[qualifier]
-					if !exists {
-						continue // Skip non-existing qualifiers
-					}
-					result.Columns[r.family][qualifier] = r.getLatestN(values, r.latest)
-				}
-			}
-
-			results[rowKey] = result
-		}
-	}
-
-	if len(results) == 0 {
-		return nil, fmt.Errorf("no rows found matching regex: %s", r.rowKeyRegex)
-	}
-
-	return results, nil
 }
 
 // getLatestN returns the latest N values from a slice of TimestampedValue.

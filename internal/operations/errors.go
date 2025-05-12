@@ -9,7 +9,6 @@ var (
 	errInvalidFormat    = errors.New("invalid format")
 	errUnknownParameter = errors.New("unknown parameter")
 	errMissingKey       = errors.New("missing search key")
-	errEmptyQuery       = errors.New("empty query")
 )
 
 // Error wraps a sentinel error with additional context
