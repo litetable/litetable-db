@@ -19,15 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	LitetableService_Read_FullMethodName   = "/litetable.server.v1.LitetableService/Read"
-	LitetableService_Write_FullMethodName  = "/litetable.server.v1.LitetableService/Write"
-	LitetableService_Delete_FullMethodName = "/litetable.server.v1.LitetableService/Delete"
+	LitetableService_CreateFamily_FullMethodName = "/litetable.server.v1.LitetableService/CreateFamily"
+	LitetableService_Read_FullMethodName         = "/litetable.server.v1.LitetableService/Read"
+	LitetableService_Write_FullMethodName        = "/litetable.server.v1.LitetableService/Write"
+	LitetableService_Delete_FullMethodName       = "/litetable.server.v1.LitetableService/Delete"
 )
 
 // LitetableServiceClient is the client API for LitetableService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LitetableServiceClient interface {
+	CreateFamily(ctx context.Context, in *CreateFamilyRequest, opts ...grpc.CallOption) (*Empty, error)
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*LitetableData, error)
 	Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*LitetableData, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -39,6 +41,15 @@ type litetableServiceClient struct {
 
 func NewLitetableServiceClient(cc grpc.ClientConnInterface) LitetableServiceClient {
 	return &litetableServiceClient{cc}
+}
+
+func (c *litetableServiceClient) CreateFamily(ctx context.Context, in *CreateFamilyRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, LitetableService_CreateFamily_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *litetableServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*LitetableData, error) {
@@ -72,6 +83,7 @@ func (c *litetableServiceClient) Delete(ctx context.Context, in *DeleteRequest, 
 // All implementations must embed UnimplementedLitetableServiceServer
 // for forward compatibility
 type LitetableServiceServer interface {
+	CreateFamily(context.Context, *CreateFamilyRequest) (*Empty, error)
 	Read(context.Context, *ReadRequest) (*LitetableData, error)
 	Write(context.Context, *WriteRequest) (*LitetableData, error)
 	Delete(context.Context, *DeleteRequest) (*Empty, error)
@@ -82,6 +94,9 @@ type LitetableServiceServer interface {
 type UnimplementedLitetableServiceServer struct {
 }
 
+func (UnimplementedLitetableServiceServer) CreateFamily(context.Context, *CreateFamilyRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateFamily not implemented")
+}
 func (UnimplementedLitetableServiceServer) Read(context.Context, *ReadRequest) (*LitetableData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Read not implemented")
 }
@@ -102,6 +117,24 @@ type UnsafeLitetableServiceServer interface {
 
 func RegisterLitetableServiceServer(s grpc.ServiceRegistrar, srv LitetableServiceServer) {
 	s.RegisterService(&LitetableService_ServiceDesc, srv)
+}
+
+func _LitetableService_CreateFamily_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFamilyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LitetableServiceServer).CreateFamily(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LitetableService_CreateFamily_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LitetableServiceServer).CreateFamily(ctx, req.(*CreateFamilyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _LitetableService_Read_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -165,6 +198,10 @@ var LitetableService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "litetable.server.v1.LitetableService",
 	HandlerType: (*LitetableServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateFamily",
+			Handler:    _LitetableService_CreateFamily_Handler,
+		},
 		{
 			MethodName: "Read",
 			Handler:    _LitetableService_Read_Handler,
