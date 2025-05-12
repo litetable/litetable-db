@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func TestMaintainSnapshotLimit(t *testing.T) {
+func TestMaintainBackupLimit(t *testing.T) {
 	// Create a temporary directory for test files
 	tempDir := t.TempDir()
 
@@ -45,7 +45,7 @@ func TestMaintainSnapshotLimit(t *testing.T) {
 	assert.Len(t, initialFiles, 5, "Should have 5 snapshot files initially")
 
 	// Run the function to maintain snapshot limit
-	manager.maintainSnapshotLimit()
+	manager.maintainBackupLimit()
 
 	// Check remaining files
 	remainingFiles, err := filepath.Glob(filepath.Join(tempDir, backupFileGlob))

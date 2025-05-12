@@ -205,17 +205,17 @@ func (m *Manager) Start() error {
 			case <-m.procCtx.Done():
 				return
 			case <-snapshotTicker.C:
-				err := m.runIncrementalSnapshot()
+				err := m.createDirectSnapshot()
 				if err != nil {
 					fmt.Printf("failed to save snapshot: %v\n", err)
 				}
 			case <-snapshotMerge.C:
-				err := m.snapshotMerge()
+				err := m.ApplyDirectSnapshots()
 				if err != nil {
 					fmt.Printf("failed to merge snapshot: %v\n", err)
 				}
 			case <-pruneTicker.C:
-				m.maintainSnapshotLimit()
+				m.maintainBackupLimit()
 			}
 		}
 	}()
@@ -230,13 +230,13 @@ func (m *Manager) Stop() error {
 	}
 
 	// Flush any remaining data
-	err := m.runIncrementalSnapshot()
+	err := m.createDirectSnapshot()
 	if err != nil {
 		return fmt.Errorf("failed to flush data: %w", err)
 	}
 
 	// create a backup - this could take time
-	return m.snapshotMerge()
+	return m.ApplyDirectSnapshots()
 }
 
 func (m *Manager) Name() string {

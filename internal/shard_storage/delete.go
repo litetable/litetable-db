@@ -61,7 +61,6 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp int6
 		if len(qualifiers) == 0 {
 			// Mark entire family for deletion
 			for q := range fam {
-				fmt.Println("Adding tombstone to qualifier:", q, family)
 				m.addTombstone(
 					row,
 					key,
@@ -70,12 +69,10 @@ func (m *Manager) Delete(key, family string, qualifiers []string, timestamp int6
 					timestamp,
 					expiresAt,
 				)
-
 				// TODO: all tombstones should send a CDC event
 			}
 		} else {
 			for _, q := range qualifiers {
-				fmt.Println("Adding tombstone to qualifier:", q, family)
 				m.addTombstone(
 					row,
 					key,

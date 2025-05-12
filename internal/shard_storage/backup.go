@@ -74,6 +74,28 @@ func (m *Manager) loadFromLatestBackup() error {
 	return nil
 }
 
+// loadLatestBackup attempts to read and parse the latest backup file.
+func (m *Manager) loadLatestBackup() (litetable.Data, error) {
+	latest, err := m.getLatestBackup()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest backup: %w", err)
+	}
+	if latest == "" {
+		return make(litetable.Data), nil
+	}
+
+	data, err := os.ReadFile(latest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read backup %s: %w", latest, err)
+	}
+
+	var parsed litetable.Data
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal backup %s: %w", latest, err)
+	}
+	return parsed, nil
+}
+
 // getLatestBackup returns the latest full-snapshot file in the data directory.
 func (m *Manager) getLatestBackup() (string, error) {
 	files, err := filepath.Glob(filepath.Join(m.dataDir, backupFileGlob))
@@ -97,9 +119,9 @@ func (m *Manager) getLatestBackup() (string, error) {
 	return latest, nil
 }
 
-// maintainSnapshotLimit checks the number of snapshot files in the directory and prunes the oldest
+// maintainBackupLimit checks the number of snapshot files in the directory and prunes the oldest
 // ones if the limit is exceeded.
-func (m *Manager) maintainSnapshotLimit() {
+func (m *Manager) maintainBackupLimit() {
 	// List all snapshot files
 	files, err := filepath.Glob(filepath.Join(m.dataDir, backupFileGlob))
 	if err != nil {
