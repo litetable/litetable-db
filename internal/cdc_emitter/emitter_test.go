@@ -109,7 +109,7 @@ func TestManager_raiseCDCEvent(t *testing.T) {
 				Timestamp:   tt.params.Column.Timestamp,
 				IsTombstone: tt.params.Column.IsTombstone,
 			}
-			if tt.params.Column.ExpiresAt != nil {
+			if tt.params.Column.ExpiresAt > 0 {
 				expectedEvent.ExpiresAt = tt.params.Column.ExpiresAt
 			}
 

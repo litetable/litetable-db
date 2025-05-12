@@ -79,7 +79,7 @@ func (m *MockshardManager) EXPECT() *MockshardManagerMockRecorder {
 }
 
 // Apply mocks base method.
-func (m *MockshardManager) Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp int64, expiresAt *int64) error {
+func (m *MockshardManager) Apply(rowKey, family string, qualifiers []string, values [][]byte, timestamp, expiresAt int64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Apply", rowKey, family, qualifiers, values, timestamp, expiresAt)
 	ret0, _ := ret[0].(error)
@@ -93,7 +93,7 @@ func (mr *MockshardManagerMockRecorder) Apply(rowKey, family, qualifiers, values
 }
 
 // Delete mocks base method.
-func (m *MockshardManager) Delete(key, family string, qualifiers []string, timestamp int64, expiresAt *int64) error {
+func (m *MockshardManager) Delete(key, family string, qualifiers []string, timestamp, expiresAt int64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", key, family, qualifiers, timestamp, expiresAt)
 	ret0, _ := ret[0].(error)

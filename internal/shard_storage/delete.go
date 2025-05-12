@@ -7,6 +7,7 @@ import (
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
 	"sort"
+	"time"
 )
 
 func (m *Manager) Delete(key, family string, qualifiers []string, timestamp int64,
@@ -167,6 +168,7 @@ func (m *Manager) DeleteExpiredTombstones(rowKey, family string, qualifiers []st
 
 	changed := false
 
+	now := time.Now().UnixNano()
 	// if we have no qualifiers, we should GC the entire family
 	if len(qualifiers) == 0 {
 		delete(row, family)
@@ -184,7 +186,9 @@ func (m *Manager) DeleteExpiredTombstones(rowKey, family string, qualifiers []st
 			var remainingValues []litetable.TimestampedValue
 			for _, entry := range values {
 				// save the relevant entries
-				if entry.Timestamp > timestamp {
+				if entry.IsTombstone && entry.ExpiresAt > now {
+					remainingValues = append(remainingValues, entry)
+				} else if entry.Timestamp > timestamp {
 					remainingValues = append(remainingValues, entry)
 				} else {
 					changed = true

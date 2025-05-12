@@ -138,6 +138,7 @@ func (m *Manager) createIncrementalSnapshotData(time int64) *snapShopData {
 
 	// Clean up empty rows before returning
 	for rowKey, rowFamilies := range snap.SnapshotData {
+
 		if rowFamilies == nil || len(*rowFamilies) == 0 {
 			fmt.Printf("row %s has no families, removing from snapshot\n", rowKey)
 			delete(snap.SnapshotData, rowKey)
@@ -168,21 +169,18 @@ func (m *Manager) createIncrementalSnapshotData(time int64) *snapShopData {
 // Data backup is eventually consistent and works with the reaper GC to keep data in sync.
 func (m *Manager) snapshotMerge() error {
 	start := time.Now()
-	// Find all incremental snapshot files
 	snapshotFiles, err := filepath.Glob(filepath.Join(m.snapshotDir, snapshotFileGlob))
 	if err != nil {
 		return fmt.Errorf("failed to list incremental snapshot files: %w", err)
 	}
-
 	if len(snapshotFiles) == 0 {
 		log.Debug().Msg("no incremental snapshots to merge")
 		return nil
 	}
-
-	// Sort files chronologically
 	sort.Strings(snapshotFiles)
 	mergedData := make(litetable.Data)
 
+	// Merge incremental snapshots
 	for _, file := range snapshotFiles {
 		fileData, err := os.ReadFile(file)
 		if err != nil {
@@ -193,27 +191,20 @@ func (m *Manager) snapshotMerge() error {
 			return fmt.Errorf("failed to unmarshal snapshot file %s: %w", file, err)
 		}
 		if snapshot.SnapshotData == nil {
-			log.Debug().Msg("no snapshot data to merge")
 			continue
 		}
 
-		// Convert from snapshot format to litetable.Data format
 		for rowKey, columnFamilies := range snapshot.SnapshotData {
 			if columnFamilies == nil {
 				continue
 			}
-
-			// Initialize row if it doesn't exist
 			if _, exists := mergedData[rowKey]; !exists {
 				mergedData[rowKey] = make(map[string]litetable.VersionedQualifier)
 			}
-
 			for familyName, qualifiers := range *columnFamilies {
-				// Check if the qualifier already exists in the family
 				if _, exists := mergedData[rowKey][familyName]; !exists {
 					mergedData[rowKey][familyName] = make(litetable.VersionedQualifier)
 				}
-				// Merge the qualifiers into the main data
 				for qualifier, values := range qualifiers {
 					mergedData[rowKey][familyName][qualifier] = values
 				}
@@ -221,23 +212,19 @@ func (m *Manager) snapshotMerge() error {
 		}
 	}
 
-	// once we have our backup data, we should get the latest backup (if it exists)
 	latestBackup, err := m.getLatestBackup()
 	if err != nil {
 		return fmt.Errorf("failed to get latest backup: %w", err)
 	}
 
-	// its possible the backup hasn't been made yet, just save the data
+	// No prior backup, save new
 	if latestBackup == "" {
-		// Process tombstones before saving the initial backup
 		m.processTombstones(&mergedData)
-		err = m.saveBackup(&mergedData)
-		if err != nil {
-			return fmt.Errorf("failed to save backup: %w", err)
-		}
-		return nil
+		cleanupEmptyRows(&mergedData)
+		return m.saveBackup(&mergedData)
 	}
 
+	// Merge with existing backup
 	dataBytes, err := os.ReadFile(latestBackup)
 	if err != nil {
 		return fmt.Errorf("failed to read snapshot %s: %w", latestBackup, err)
@@ -248,95 +235,50 @@ func (m *Manager) snapshotMerge() error {
 		return fmt.Errorf("failed to parse snapshot %s: %w", latestBackup, err)
 	}
 
+	// Merge mergedData into loadedData
 	for rowKey, columnFamilies := range mergedData {
 		if columnFamilies == nil {
 			continue
 		}
-
-		// Initialize row if it doesn't exist
 		if _, exists := loadedData[rowKey]; !exists {
 			loadedData[rowKey] = make(map[string]litetable.VersionedQualifier)
 		}
-
 		for familyName, qualifiers := range columnFamilies {
-			if qualifiers == nil {
-				continue
-			}
-
-			// Check if the family already exists
 			if _, exists := loadedData[rowKey][familyName]; !exists {
 				loadedData[rowKey][familyName] = make(litetable.VersionedQualifier)
 			}
-
-			// Merge the qualifiers into the main data
-			for qualifier, values := range qualifiers {
-				// Instead of directly copying values, merge them properly
-				if existingValues, exists := loadedData[rowKey][familyName][qualifier]; exists {
-					// Create a map to track values by timestamp to avoid duplicates
-					valuesByTimestamp := make(map[int64]litetable.TimestampedValue)
-
-					// Add existing values to the map
-					for _, val := range existingValues {
-						valuesByTimestamp[val.Timestamp] = val
-					}
-
-					// Add or override with new values
-					for _, val := range values {
-						valuesByTimestamp[val.Timestamp] = val
-					}
-
-					// Convert back to slice
-					var mergedValues []litetable.TimestampedValue
-					for _, val := range valuesByTimestamp {
-						mergedValues = append(mergedValues, val)
-					}
-
-					// Sort by timestamp (newest first)
-					sort.Slice(mergedValues, func(i, j int) bool {
-						return mergedValues[i].Timestamp > mergedValues[j].Timestamp
-					})
-
-					loadedData[rowKey][familyName][qualifier] = mergedValues
-				} else {
-					// No existing values, just copy the new ones
-					loadedData[rowKey][familyName][qualifier] = values
+			for qualifier, newValues := range qualifiers {
+				// Merge by timestamp
+				existing := loadedData[rowKey][familyName][qualifier]
+				timestampMap := make(map[int64]litetable.TimestampedValue)
+				for _, v := range existing {
+					timestampMap[v.Timestamp] = v
 				}
+				for _, v := range newValues {
+					timestampMap[v.Timestamp] = v
+				}
+				var merged []litetable.TimestampedValue
+				for _, v := range timestampMap {
+					merged = append(merged, v)
+				}
+				sort.Slice(merged, func(i, j int) bool {
+					return merged[i].Timestamp > merged[j].Timestamp
+				})
+				loadedData[rowKey][familyName][qualifier] = merged
 			}
 		}
 	}
 
-	// Clean up any row entries that are completely empty objects
-	for rowKey, columnFamilies := range loadedData {
-		if len(columnFamilies) == 0 {
-			delete(loadedData, rowKey)
-			continue
-		}
-
-		// Check if all families are empty
-		allEmpty := true
-		for _, qualifiers := range columnFamilies {
-			if len(qualifiers) > 0 {
-				allEmpty = false
-				break
-			}
-		}
-
-		if allEmpty {
-			delete(loadedData, rowKey)
-		}
-	}
-
-	// Process tombstones to remove tombstoned data
+	// Process tombstones and clean empty structures
 	m.processTombstones(&loadedData)
+	cleanupEmptyRows(&loadedData)
 
-	// save the backup file
-	err = m.saveBackup(&loadedData)
-	if err != nil {
+	// Save new backup
+	if err = m.saveBackup(&loadedData); err != nil {
 		return fmt.Errorf("failed to save backup: %w", err)
 	}
 
-	// once we know the backup is saved, purge the snapshot files
-	// Delete the oldest files, keeping only the configured limit
+	// Clean up snapshot files
 	for _, file := range snapshotFiles {
 		if err = os.Remove(file); err != nil {
 			log.Error().Err(err).Msgf("Failed to remove old snapshot: %s", file)
@@ -382,6 +324,24 @@ func (m *Manager) processTombstones(data *litetable.Data) {
 
 		// Clean up empty rows
 		if len(columnFamilies) == 0 {
+			delete(*data, rowKey)
+		}
+	}
+}
+
+func cleanupEmptyRows(data *litetable.Data) {
+	for rowKey, families := range *data {
+		for familyName, qualifiers := range families {
+			for qualifier, values := range qualifiers {
+				if len(values) == 0 {
+					delete(qualifiers, qualifier)
+				}
+			}
+			if len(qualifiers) == 0 {
+				delete(families, familyName)
+			}
+		}
+		if len(families) == 0 {
 			delete(*data, rowKey)
 		}
 	}
