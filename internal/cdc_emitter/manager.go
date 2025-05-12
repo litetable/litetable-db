@@ -97,6 +97,18 @@ func (m *Manager) Start() error {
 }
 
 func (m *Manager) Stop() error {
+	// Close the listener
+	if m.listener != nil {
+		err := m.listener.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close listener: %w", err)
+		}
+	}
+
+	if m.procCancel != nil {
+		m.procCancel()
+	}
+
 	return nil
 }
 
