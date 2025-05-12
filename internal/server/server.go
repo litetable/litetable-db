@@ -90,8 +90,11 @@ func (m *Manager) Name() string {
 }
 
 func (m *Manager) Health(w http.ResponseWriter, r *http.Request) {
+	log.Debug().Msg("incoming health check")
 	// Handle HTTP requests here
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status": "ok"}`))
+	response := `{"status": "ok"}`
+	log.Debug().Msg("Health check response: " + response)
+	_, _ = w.Write([]byte(response))
 }
