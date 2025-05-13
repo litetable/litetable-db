@@ -2,7 +2,7 @@ package shard_storage
 
 import (
 	"fmt"
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
+	v1 "github.com/litetable/litetable-db/internal/cdc_emitter/v1"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
@@ -130,12 +130,15 @@ func (m *Manager) addTombstone(
 	// we are iterating on the actual memory map here.
 	row[family][qualifier] = values
 
-	m.cdc.Emit(&cdc_emitter.CDCParams{
-		Operation: litetable.OperationDelete,
-		RowKey:    key,
-		Family:    family,
-		Qualifier: qualifier,
-		Column:    tombstone,
+	m.cdc.Emit(&v1.CDCEvent{
+		Operation:   litetable.OperationDelete,
+		RowKey:      key,
+		Family:      family,
+		Qualifier:   qualifier,
+		Value:       tombstone.Value,
+		Timestamp:   tombstone.Timestamp,
+		IsTombstone: tombstone.IsTombstone,
+		ExpiresAt:   tombstone.ExpiresAt,
 	})
 }
 

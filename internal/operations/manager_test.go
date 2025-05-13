@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/shard_storage"
 	"github.com/litetable/litetable-db/internal/shard_storage/wal"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,6 @@ func TestNew(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		cfg := &Config{
 			WAL:          &wal.Manager{},
-			CDC:          &cdc_emitter.Manager{},
 			ShardStorage: &shard_storage.Manager{},
 		}
 		got, err := New(cfg)

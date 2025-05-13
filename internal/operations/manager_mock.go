@@ -12,7 +12,6 @@ package operations
 import (
 	reflect "reflect"
 
-	cdc_emitter "github.com/litetable/litetable-db/internal/cdc_emitter"
 	litetable "github.com/litetable/litetable-db/internal/litetable"
 	wal "github.com/litetable/litetable-db/internal/shard_storage/wal"
 	gomock "go.uber.org/mock/gomock"
@@ -177,39 +176,4 @@ func (m *MockshardManager) UpdateFamilies(families []string) error {
 func (mr *MockshardManagerMockRecorder) UpdateFamilies(families any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFamilies", reflect.TypeOf((*MockshardManager)(nil).UpdateFamilies), families)
-}
-
-// Mockcdc is a mock of cdc interface.
-type Mockcdc struct {
-	ctrl     *gomock.Controller
-	recorder *MockcdcMockRecorder
-}
-
-// MockcdcMockRecorder is the mock recorder for Mockcdc.
-type MockcdcMockRecorder struct {
-	mock *Mockcdc
-}
-
-// NewMockcdc creates a new mock instance.
-func NewMockcdc(ctrl *gomock.Controller) *Mockcdc {
-	mock := &Mockcdc{ctrl: ctrl}
-	mock.recorder = &MockcdcMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *Mockcdc) EXPECT() *MockcdcMockRecorder {
-	return m.recorder
-}
-
-// Emit mocks base method.
-func (m *Mockcdc) Emit(params *cdc_emitter.CDCParams) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Emit", params)
-}
-
-// Emit indicates an expected call of Emit.
-func (mr *MockcdcMockRecorder) Emit(params any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Emit", reflect.TypeOf((*Mockcdc)(nil).Emit), params)
 }

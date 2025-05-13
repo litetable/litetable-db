@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
+	v1 "github.com/litetable/litetable-db/internal/cdc_emitter/v1"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
@@ -17,7 +17,7 @@ import (
 )
 
 type cdc interface {
-	Emit(params *cdc_emitter.CDCParams)
+	Emit(params *v1.CDCEvent)
 }
 
 type garbageCollector interface {

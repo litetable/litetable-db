@@ -2,7 +2,7 @@ package shard_storage
 
 import (
 	"fmt"
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
+	v1 "github.com/litetable/litetable-db/internal/cdc_emitter/v1"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/reaper"
 	"github.com/rs/zerolog/log"
@@ -61,12 +61,15 @@ func (m *Manager) Apply(rowKey, family string, qualifiers []string, values [][]b
 
 		// Emit CDC event for each qualifier
 		if m.cdc != nil {
-			m.cdc.Emit(&cdc_emitter.CDCParams{
-				Operation: litetable.OperationWrite,
-				RowKey:    rowKey,
-				Family:    family,
-				Qualifier: qualifier,
-				Column:    newValue,
+			m.cdc.Emit(&v1.CDCEvent{
+				Operation:   litetable.OperationWrite,
+				RowKey:      rowKey,
+				Family:      family,
+				Qualifier:   qualifier,
+				Value:       newValue.Value,
+				Timestamp:   newValue.Timestamp,
+				IsTombstone: newValue.IsTombstone,
+				ExpiresAt:   expiresAt,
 			})
 		}
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"github.com/litetable/litetable-db/internal/app"
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
+	v1 "github.com/litetable/litetable-db/internal/cdc_emitter/v1"
 	"github.com/litetable/litetable-db/internal/config"
 	"github.com/litetable/litetable-db/internal/operations"
 	"github.com/litetable/litetable-db/internal/server"
@@ -58,14 +58,9 @@ func initialize() (*app.App, error) {
 	// get the filepath
 	certDir := filepath.Join(homeDir, defaultDir)
 
-	cdcEmitter, err := cdc_emitter.New(&cdc_emitter.Config{
-		Port:    32496, // all CDC events will be sent to this port
-		Address: cfg.Server.Address,
-	})
-	if err != nil {
-		return nil, err
-	}
-	deps = append(deps, cdcEmitter)
+	// create a new CDC Stream Server
+	cdcStreamServer := v1.New()
+	deps = append(deps, cdcStreamServer)
 
 	// create the WAL manager
 	walManager, err := wal.New(&wal.Config{
@@ -82,7 +77,7 @@ func initialize() (*app.App, error) {
 		SnapshotTimer:    cfg.SnapshotTimer,
 		MaxSnapshotLimit: cfg.MaxSnapshotLimit,
 		ShardCount:       8,
-		CDCEmitter:       cdcEmitter,
+		CDCEmitter:       cdcStreamServer,
 	})
 	if err != nil {
 		return nil, err
@@ -93,7 +88,7 @@ func initialize() (*app.App, error) {
 	opsManager, err := operations.New(&operations.Config{
 		WAL:          walManager,
 		ShardStorage: shardManager,
-		CDC:          cdcEmitter,
+		// CDC: cdcStreamServer,
 	})
 	if err != nil {
 		return nil, err

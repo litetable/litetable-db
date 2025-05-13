@@ -2,7 +2,6 @@ package operations
 
 import (
 	"errors"
-	"github.com/litetable/litetable-db/internal/cdc_emitter"
 	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/shard_storage/wal"
 )
@@ -27,22 +26,16 @@ type shardManager interface {
 		expiresAt int64) error
 }
 
-type cdc interface {
-	Emit(params *cdc_emitter.CDCParams)
-}
-
 type Manager struct {
 	writeAhead   writeAhead
 	defaultTTL   int64
 	shardStorage shardManager
-	cdc          cdc
 	isHealthy    bool
 }
 
 type Config struct {
 	WAL          writeAhead
 	ShardStorage shardManager
-	CDC          cdc
 }
 
 func (c *Config) validate() error {
@@ -54,9 +47,7 @@ func (c *Config) validate() error {
 	if c.ShardStorage == nil {
 		errGrp = append(errGrp, errors.New("shard storage cannot be nil"))
 	}
-	if c.CDC == nil {
-		errGrp = append(errGrp, errors.New("CDC emitter cannot be nil"))
-	}
+
 	return errors.Join(errGrp...)
 }
 
@@ -70,7 +61,6 @@ func New(cfg *Config) (*Manager, error) {
 		writeAhead:   cfg.WAL,
 		defaultTTL:   3600, // configure default for 1 hour
 		shardStorage: cfg.ShardStorage,
-		cdc:          cfg.CDC,
 		isHealthy:    true,
 	}, nil
 }
