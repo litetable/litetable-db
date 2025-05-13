@@ -24,6 +24,9 @@ type Server struct {
 
 	server *grpc.Server
 	events chan *CDCEvent
+
+	eventWg  sync.WaitGroup
+	stopOnce sync.Once
 }
 
 func New() *Server {
@@ -83,12 +86,14 @@ func (s *Server) registerGRPCStream(clientID string, stream v1.CDCService_CDCStr
 		s.grpcStreams = make(map[string]v1.CDCService_CDCStreamServer)
 	}
 	s.grpcStreams[clientID] = stream
+	log.Debug().Str("client-id", clientID).Msg("registered gRPC stream")
 }
 
 func (s *Server) unregisterGRPCStream(clientID string) {
 	s.grpcMux.Lock()
 	defer s.grpcMux.Unlock()
 	delete(s.grpcStreams, clientID)
+	log.Debug().Str("client-id", clientID).Msg("unregistered gRPC stream")
 }
 
 func (s *Server) Start() error {
@@ -100,6 +105,7 @@ func (s *Server) Start() error {
 	log.Info().Msgf("CDC gRPC server listening at %s:%d", s.address, s.port)
 
 	// Start fan-out dispatcher
+	s.eventWg.Add(1)
 	go s.dispatchLoop()
 
 	// Start gRPC server
@@ -111,14 +117,33 @@ func (s *Server) Start() error {
 
 	return nil
 }
-func (s *Server) Stop() error { return nil }
+func (s *Server) Stop() error {
+	s.stopOnce.Do(func() {
+		// Gracefully stop gRPC server (blocks until in-flight RPCs complete)
+		if s.server != nil {
+			s.server.GracefulStop()
+		}
+
+		// Close the event channel so dispatchLoop exits
+		close(s.events)
+
+		// Wait for dispatchLoop to finish processing
+		s.eventWg.Wait()
+	})
+	return nil
+}
 
 func (s *Server) Name() string {
 	return "CDC Stream"
 }
 
 func (s *Server) dispatchLoop() {
+	defer s.eventWg.Done()
 	for evt := range s.events {
+		// TODO: verify litetable configuration before sending events
+		// if disabled, just discard the event
+
+		// TODO: support backing up events to a file
 		s.grpcMux.Lock()
 		for id, stream := range s.grpcStreams {
 			event := &v1.CDCEvent{
@@ -148,4 +173,6 @@ func (s *Server) dispatchLoop() {
 		}
 		s.grpcMux.Unlock()
 	}
+
+	log.Debug().Msg("event dispatch loop exited")
 }
