@@ -88,7 +88,6 @@ func initialize() (*app.App, error) {
 	opsManager, err := operations.New(&operations.Config{
 		WAL:          walManager,
 		ShardStorage: shardManager,
-		// CDC: cdcStreamServer,
 	})
 	if err != nil {
 		return nil, err

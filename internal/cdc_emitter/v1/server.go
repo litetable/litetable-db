@@ -55,8 +55,7 @@ type grpcSubscriber struct {
 
 var grpcSubscribers sync.Map // map[string]*grpcSubscriber
 
-func (s *Server) CDCStream(req *v1.CDCSubscriptionRequest,
-	stream v1.CDCService_CDCStreamServer) error {
+func (s *Server) CDCStream(req *v1.CDCSubscriptionRequest, stream v1.CDCService_CDCStreamServer) error {
 	sub := &grpcSubscriber{
 		id:     req.GetClientId(),
 		stream: stream,
@@ -64,16 +63,16 @@ func (s *Server) CDCStream(req *v1.CDCSubscriptionRequest,
 	}
 
 	grpcSubscribers.Store(sub.id, sub)
-
-	// Optional: Replay past events
-	if req.GetReplay() {
-		// TODO: Implement replay logic one day
-	}
-
-	// Register with emitter to receive live events
 	s.registerGRPCStream(sub.id, sub.stream)
 
-	<-sub.done // block until client disconnects
+	// Monitor for cancellation
+	ctx := stream.Context()
+
+	select {
+	case <-ctx.Done(): // client closed the stream
+	case <-sub.done: // server signaled shutdown
+	}
+
 	grpcSubscribers.Delete(sub.id)
 	s.unregisterGRPCStream(sub.id)
 	return nil
@@ -119,6 +118,19 @@ func (s *Server) Start() error {
 }
 func (s *Server) Stop() error {
 	s.stopOnce.Do(func() {
+		// Step 1: Notify all subscriber goroutines to exit
+		grpcSubscribers.Range(func(key, value any) bool {
+			if sub, ok := value.(*grpcSubscriber); ok {
+				select {
+				case <-sub.done:
+					// already closed
+				default:
+					close(sub.done)
+				}
+			}
+			return true
+		})
+
 		// Gracefully stop gRPC server (blocks until in-flight RPCs complete)
 		if s.server != nil {
 			s.server.GracefulStop()
