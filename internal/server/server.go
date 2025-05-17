@@ -9,11 +9,23 @@ import (
 	"time"
 )
 
+//go:generate mockgen -destination ./server_mock.go -package server -source ./server.go
+
+type httpServer interface {
+	ListenAndServe() error
+	Shutdown(ctx context.Context) error
+	Addr() string
+}
+
+type realHTTPServer struct {
+	s *http.Server
+}
+
 type Server struct {
 	address string
 	port    int
 	router  *http.ServeMux
-	server  *http.Server // Add this field
+	server  httpServer // Add this field
 }
 
 type Config struct {
@@ -39,38 +51,48 @@ func New(cfg *Config) (*Server, error) {
 	}
 
 	// init an http server
-	srv := http.NewServeMux()
+	mux := http.NewServeMux()
 
 	server := &http.Server{
 		Addr: fmt.Sprintf("%s:%d", cfg.Address, cfg.Port),
 	}
 
-	// create a new server
 	m := &Server{
 		address: cfg.Address,
 		port:    cfg.Port,
-		server:  server,
+		server:  &realHTTPServer{s: server},
 	}
-	srv.HandleFunc("GET /health", m.Health)
-	m.server.Handler = srv
+	mux.HandleFunc("GET /health", m.Health)
+	server.Handler = mux
 
 	return m, nil
 }
 
 func (s *Server) Start() error {
-	log.Info().Msgf("HTTP server listening on %s", s.server.Addr)
-	// Run the server in a separate goroutine
+	log.Info().Msgf("HTTP server listening on %s", s.server.Addr())
+
+	errCh := make(chan error, 1)
+
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error().Err(err).Msg("HTTP server failed")
+		if err := s.server.ListenAndServe(); err != nil {
+			errCh <- err // always return any ListenAndServe error, even ErrServerClosed
+			return
 		}
+		errCh <- nil
 	}()
-	return nil
+
+	// Block briefly for error or nil return
+	select {
+	case err := <-errCh:
+		return err
+	case <-time.After(500 * time.Millisecond):
+		// Assume server started successfully
+		return nil
+	}
 }
 
 func (s *Server) Stop() error {
 	// Graceful shutdown with timeout
-	// FIXME: this is not working and blocks the shutdown for some reason
 	if s.server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -98,4 +120,16 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	response := `{"status": "ok"}`
 	log.Debug().Msg("Health check response: " + response)
 	_, _ = w.Write([]byte(response))
+}
+
+func (r *realHTTPServer) ListenAndServe() error {
+	return r.s.ListenAndServe()
+}
+
+func (r *realHTTPServer) Shutdown(ctx context.Context) error {
+	return r.s.Shutdown(ctx)
+}
+
+func (r *realHTTPServer) Addr() string {
+	return r.s.Addr
 }
