@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func (l *litetable) validateWrite(msg *proto.WriteRequest) error {
+func (l *lt) validateWrite(msg *proto.WriteRequest) error {
 	var errGrp []error
 	if msg.GetFamily() == "" {
 		errGrp = append(errGrp, status.Errorf(codes.InvalidArgument, "family required"))
@@ -25,7 +25,7 @@ func (l *litetable) validateWrite(msg *proto.WriteRequest) error {
 	return errors.Join(errGrp...)
 }
 
-func (l *litetable) Write(ctx context.Context, msg *proto.WriteRequest) (*proto.LitetableData,
+func (l *lt) Write(ctx context.Context, msg *proto.WriteRequest) (*proto.LitetableData,
 	error) {
 	if err := l.validateWrite(msg); err != nil {
 		return nil, err

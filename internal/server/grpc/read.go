@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func (l *litetable) validateRead(msg *proto.ReadRequest) error {
+func (l *lt) validateRead(msg *proto.ReadRequest) error {
 	var errGrp []error
 	if msg.GetFamily() == "" {
 		errGrp = append(errGrp, status.Errorf(codes.InvalidArgument, "family required"))
@@ -23,7 +23,7 @@ func (l *litetable) validateRead(msg *proto.ReadRequest) error {
 	return errors.Join(errGrp...)
 }
 
-func (l *litetable) Read(ctx context.Context, msg *proto.ReadRequest) (*proto.LitetableData,
+func (l *lt) Read(ctx context.Context, msg *proto.ReadRequest) (*proto.LitetableData,
 	error) {
 	now := time.Now()
 	log.Debug().Msgf("Read request: %v", msg)

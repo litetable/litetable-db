@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func (l *litetable) validateCreateFamilyRequest(msg *proto.CreateFamilyRequest) error {
+func (l *lt) validateCreateFamilyRequest(msg *proto.CreateFamilyRequest) error {
 	var errGrp []error
 
 	families := msg.GetFamily()
@@ -21,7 +21,7 @@ func (l *litetable) validateCreateFamilyRequest(msg *proto.CreateFamilyRequest) 
 	return errors.Join(errGrp...)
 }
 
-func (l *litetable) CreateFamily(ctx context.Context, msg *proto.CreateFamilyRequest) (*proto.
+func (l *lt) CreateFamily(ctx context.Context, msg *proto.CreateFamilyRequest) (*proto.
 	Empty, error) {
 	start := time.Now()
 	if err := l.validateCreateFamilyRequest(msg); err != nil {

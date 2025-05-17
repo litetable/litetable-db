@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (l *litetable) validateDelete(msg *proto.DeleteRequest) error {
+func (l *lt) validateDelete(msg *proto.DeleteRequest) error {
 	var errGrp []error
 	if msg.GetFamily() == "" {
 		errGrp = append(errGrp, status.Errorf(codes.InvalidArgument, "family required"))
@@ -21,7 +21,7 @@ func (l *litetable) validateDelete(msg *proto.DeleteRequest) error {
 	return errors.Join(errGrp...)
 }
 
-func (l *litetable) Delete(ctx context.Context, msg *proto.DeleteRequest) (*proto.Empty, error) {
+func (l *lt) Delete(ctx context.Context, msg *proto.DeleteRequest) (*proto.Empty, error) {
 	if err := l.validateDelete(msg); err != nil {
 		return nil, err
 	}
