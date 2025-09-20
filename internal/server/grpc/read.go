@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
 )
 
 func (l *lt) validateRead(msg *proto.ReadRequest) error {
@@ -55,7 +56,7 @@ func (l *lt) Read(ctx context.Context, msg *proto.ReadRequest) (*proto.Litetable
 		queryStr += fmt.Sprintf(" latest=%d", msg.GetLatest())
 	}
 
-	result, err := l.operations.Read(queryStr)
+	result, err := l.operations.Read(ctx, queryStr)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to read data: %v", err)
 	}

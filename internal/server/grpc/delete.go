@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/litetable/litetable-db/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -49,7 +50,7 @@ func (l *lt) Delete(ctx context.Context, msg *proto.DeleteRequest) (*proto.Empty
 		queryStr += " ttl=" + fmt.Sprintf("%d", ttl)
 	}
 
-	if err := l.operations.Delete(queryStr); err != nil {
+	if err := l.operations.Delete(ctx, queryStr); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete data: %v", err)
 	}
 	return &proto.Empty{}, nil

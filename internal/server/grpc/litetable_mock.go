@@ -10,6 +10,7 @@
 package grpc
 
 import (
+	context "context"
 	net "net"
 	reflect "reflect"
 
@@ -41,61 +42,61 @@ func (m *Mockoperations) EXPECT() *MockoperationsMockRecorder {
 }
 
 // CreateFamilies mocks base method.
-func (m *Mockoperations) CreateFamilies(families []string) error {
+func (m *Mockoperations) CreateFamilies(ctx context.Context, families []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateFamilies", families)
+	ret := m.ctrl.Call(m, "CreateFamilies", ctx, families)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateFamilies indicates an expected call of CreateFamilies.
-func (mr *MockoperationsMockRecorder) CreateFamilies(families any) *gomock.Call {
+func (mr *MockoperationsMockRecorder) CreateFamilies(ctx, families any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFamilies", reflect.TypeOf((*Mockoperations)(nil).CreateFamilies), families)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFamilies", reflect.TypeOf((*Mockoperations)(nil).CreateFamilies), ctx, families)
 }
 
 // Delete mocks base method.
-func (m *Mockoperations) Delete(query string) error {
+func (m *Mockoperations) Delete(ctx context.Context, query string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", query)
+	ret := m.ctrl.Call(m, "Delete", ctx, query)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockoperationsMockRecorder) Delete(query any) *gomock.Call {
+func (mr *MockoperationsMockRecorder) Delete(ctx, query any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*Mockoperations)(nil).Delete), query)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*Mockoperations)(nil).Delete), ctx, query)
 }
 
 // Read mocks base method.
-func (m *Mockoperations) Read(query string) (map[string]*litetable.Row, error) {
+func (m *Mockoperations) Read(ctx context.Context, query string) (map[string]*litetable.Row, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Read", query)
+	ret := m.ctrl.Call(m, "Read", ctx, query)
 	ret0, _ := ret[0].(map[string]*litetable.Row)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Read indicates an expected call of Read.
-func (mr *MockoperationsMockRecorder) Read(query any) *gomock.Call {
+func (mr *MockoperationsMockRecorder) Read(ctx, query any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*Mockoperations)(nil).Read), query)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*Mockoperations)(nil).Read), ctx, query)
 }
 
 // Write mocks base method.
-func (m *Mockoperations) Write(query string) (map[string]*litetable.Row, error) {
+func (m *Mockoperations) Write(ctx context.Context, query string) (map[string]*litetable.Row, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Write", query)
+	ret := m.ctrl.Call(m, "Write", ctx, query)
 	ret0, _ := ret[0].(map[string]*litetable.Row)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Write indicates an expected call of Write.
-func (mr *MockoperationsMockRecorder) Write(query any) *gomock.Call {
+func (mr *MockoperationsMockRecorder) Write(ctx, query any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*Mockoperations)(nil).Write), query)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*Mockoperations)(nil).Write), ctx, query)
 }
 
 // MockgrpcServer is a mock of grpcServer interface.

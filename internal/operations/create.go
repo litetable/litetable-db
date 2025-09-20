@@ -1,6 +1,10 @@
 package operations
 
-func (m *Manager) CreateFamilies(families []string) error {
+import (
+	"context"
+)
+
+func (m *Manager) CreateFamilies(ctx context.Context, families []string) error {
 	if len(families) == 0 {
 		return newError(errInvalidFormat, "creating a family requires at least one family name")
 	}

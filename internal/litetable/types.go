@@ -55,3 +55,15 @@ type Row struct {
 }
 
 type Data map[string]map[string]VersionedQualifier
+
+// Ownership defines the attributes of a row key owner - the person or persons who can access that
+// key. A row key can have one owner, and many accessors via roles - these are not related.
+// Any row that has an owner is private by default. Otherwise, the row is public.
+//
+// Ownership is optional and can be enabled disabled via configuration.
+//
+// Example:
+type Ownership struct {
+	Owner         []string `json:"owner,omitempty"` // the owner(s) of the row key
+	AccessorRoles []string `json:"roles,omitempty"` // roles that can access the row key
+}

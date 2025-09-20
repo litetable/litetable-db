@@ -3,12 +3,13 @@ package grpc
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"testing"
 )
 
 func TestLt_CreateFamily(t *testing.T) {
@@ -30,7 +31,7 @@ func TestLt_CreateFamily(t *testing.T) {
 			request: &proto.CreateFamilyRequest{Family: []string{"testFamily"}},
 			mockSetup: func(m *Mockoperations) {
 				m.EXPECT().
-					CreateFamilies([]string{"testFamily"}).
+					CreateFamilies(gomock.Any(), []string{"testFamily"}).
 					Return(errors.New("backend error"))
 			},
 			expectedCode:    codes.Internal,
@@ -40,7 +41,7 @@ func TestLt_CreateFamily(t *testing.T) {
 			request: &proto.CreateFamilyRequest{Family: []string{"validFamily"}},
 			mockSetup: func(m *Mockoperations) {
 				m.EXPECT().
-					CreateFamilies([]string{"validFamily"}).
+					CreateFamilies(gomock.Any(), []string{"validFamily"}).
 					Return(nil)
 			},
 			expectedCode:    codes.OK,

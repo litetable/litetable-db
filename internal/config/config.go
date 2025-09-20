@@ -3,13 +3,14 @@ package config
 import (
 	"bufio"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
-	"github.com/litetable/litetable-db/internal/server"
-	"github.com/litetable/litetable-db/internal/server/grpc"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/litetable/litetable-db/internal/litetable"
+	"github.com/litetable/litetable-db/internal/server"
+	"github.com/litetable/litetable-db/internal/server/grpc"
 )
 
 const (
@@ -25,6 +26,7 @@ type Config struct {
 	Debug                  bool
 	CloudEnvironment       string
 	GRPCServer             grpc.Config
+	AuthOwnership          bool
 }
 
 func NewConfig() (*Config, error) {
@@ -101,6 +103,8 @@ func NewConfig() (*Config, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid snapshot limit value: %w", err)
 			}
+		case "auth_ownership":
+			config.AuthOwnership = value == "true"
 		}
 	}
 

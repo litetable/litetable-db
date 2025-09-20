@@ -1,16 +1,18 @@
 package operations
 
 import (
+	"context"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
-	wal2 "github.com/litetable/litetable-db/internal/shard_storage/wal"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/litetable/litetable-db/internal/litetable"
+	wal2 "github.com/litetable/litetable-db/internal/shard_storage/wal"
 )
 
-func (m *Manager) Write(query string) (map[string]*litetable.Row, error) {
+func (m *Manager) Write(ctx context.Context, query string) (map[string]*litetable.Row, error) {
 	if err := m.writeAhead.Apply(&wal2.Entry{
 		Operation: litetable.OperationWrite,
 		Query:     []byte(query),

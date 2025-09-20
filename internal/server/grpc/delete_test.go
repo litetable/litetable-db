@@ -3,12 +3,13 @@ package grpc
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"testing"
 )
 
 func TestLt_Delete(t *testing.T) {
@@ -35,7 +36,7 @@ func TestLt_Delete(t *testing.T) {
 			mockSetup: func(m *Mockoperations) {
 				// Expected query: key=rk family=fam qualifier=q1
 				m.EXPECT().
-					Delete("key=rk family=fam qualifier=q1").
+					Delete(gomock.Any(), "key=rk family=fam qualifier=q1").
 					Return(errors.New("boom"))
 			},
 			expectedCode:    codes.Internal,
@@ -51,7 +52,7 @@ func TestLt_Delete(t *testing.T) {
 			},
 			mockSetup: func(m *Mockoperations) {
 				m.EXPECT().
-					Delete("key=rk family=fam qualifier=q1 qualifier=q2 timestamp=12345 ttl=60").
+					Delete(gomock.Any(), "key=rk family=fam qualifier=q1 qualifier=q2 timestamp=12345 ttl=60").
 					Return(nil)
 			},
 			expectedCode:    codes.OK,

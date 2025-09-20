@@ -3,11 +3,12 @@ package grpc
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
 )
 
 func (l *lt) validateCreateFamilyRequest(msg *proto.CreateFamilyRequest) error {
@@ -30,7 +31,7 @@ func (l *lt) CreateFamily(ctx context.Context, msg *proto.CreateFamilyRequest) (
 
 	log.Debug().Msgf("CreateFamily request: %v", msg)
 
-	if err := l.operations.CreateFamilies(msg.GetFamily()); err != nil {
+	if err := l.operations.CreateFamilies(ctx, msg.GetFamily()); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create family: %v", err)
 	}
 	log.Debug().Msgf("CreateFamily successful: %v", time.Since(start))

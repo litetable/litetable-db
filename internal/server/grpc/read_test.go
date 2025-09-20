@@ -3,13 +3,14 @@ package grpc
 import (
 	"context"
 	"errors"
+	"testing"
+
 	litetable2 "github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"testing"
 )
 
 func TestLt_Read(t *testing.T) {
@@ -37,7 +38,7 @@ func TestLt_Read(t *testing.T) {
 			expectedQuery: "family=fam key=key1",
 			mockSetup: func(m *Mockoperations) {
 				m.EXPECT().
-					Read("family=fam key=key1").
+					Read(gomock.Any(), "family=fam key=key1").
 					Return(nil, errors.New("boom"))
 			},
 			expectedCode:    codes.Internal,
@@ -54,7 +55,7 @@ func TestLt_Read(t *testing.T) {
 			expectedQuery: "family=fam prefix=r1 qualifier=a qualifier=b latest=2",
 			mockSetup: func(m *Mockoperations) {
 				m.EXPECT().
-					Read("family=fam prefix=r1 qualifier=a qualifier=b latest=2").
+					Read(gomock.Any(), "family=fam prefix=r1 qualifier=a qualifier=b latest=2").
 					Return(map[string]*litetable2.Row{
 						"r1": {
 							Key: "r1",

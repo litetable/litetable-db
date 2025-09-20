@@ -3,13 +3,14 @@ package grpc
 import (
 	"context"
 	"errors"
+	"testing"
+
 	litetable2 "github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"testing"
 )
 
 func TestLt_Write(t *testing.T) {
@@ -40,7 +41,7 @@ func TestLt_Write(t *testing.T) {
 			mockSetup: func(m *Mockoperations) {
 				// URL encoding of "v1" = "v1" (no special chars)
 				m.EXPECT().
-					Write("family=f1 key=r1 qualifier=q1 value=v1").
+					Write(gomock.Any(), "family=f1 key=r1 qualifier=q1 value=v1").
 					Return(nil, errors.New("db down"))
 			},
 			expectedCode:    codes.Internal,
@@ -57,7 +58,7 @@ func TestLt_Write(t *testing.T) {
 			expectedQuery: "family=f2 key=r2 qualifier=q2 value=hello+world%21",
 			mockSetup: func(m *Mockoperations) {
 				m.EXPECT().
-					Write("family=f2 key=r2 qualifier=q2 value=hello+world%21").
+					Write(gomock.Any(), "family=f2 key=r2 qualifier=q2 value=hello+world%21").
 					Return(map[string]*litetable2.Row{
 						"r2": {
 							Key: "r2",

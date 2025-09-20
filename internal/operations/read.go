@@ -1,15 +1,17 @@
 package operations
 
 import (
+	"context"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/litetable/litetable-db/internal/litetable"
 )
 
-func (m *Manager) Read(query string) (map[string]*litetable.Row, error) {
+func (m *Manager) Read(ctx context.Context, query string) (map[string]*litetable.Row, error) {
 	// Parse the query
 	parsed, err := parseRead(query)
 	if err != nil {

@@ -1,15 +1,17 @@
 package operations
 
 import (
+	"context"
 	"fmt"
-	"github.com/litetable/litetable-db/internal/litetable"
-	wal2 "github.com/litetable/litetable-db/internal/shard_storage/wal"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/litetable/litetable-db/internal/litetable"
+	wal2 "github.com/litetable/litetable-db/internal/shard_storage/wal"
 )
 
-func (m *Manager) Delete(query string) error {
+func (m *Manager) Delete(ctx context.Context, query string) error {
 	if err := m.writeAhead.Apply(&wal2.Entry{
 		Operation: litetable.OperationDelete,
 		Query:     []byte(query),

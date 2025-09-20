@@ -3,12 +3,13 @@ package grpc
 import (
 	"context"
 	"errors"
+	"net/url"
+	"time"
+
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net/url"
-	"time"
 )
 
 func (l *lt) validateWrite(msg *proto.WriteRequest) error {
@@ -44,7 +45,7 @@ func (l *lt) Write(ctx context.Context, msg *proto.WriteRequest) (*proto.Litetab
 		}
 	}
 
-	result, err := l.operations.Write(queryStr)
+	result, err := l.operations.Write(ctx, queryStr)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to write data: %v", err)
 	}

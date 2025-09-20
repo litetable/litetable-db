@@ -3,6 +3,10 @@ package grpc
 import (
 	"context"
 	"errors"
+	"net"
+	"testing"
+	"time"
+
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
@@ -10,9 +14,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
-	"net"
-	"testing"
-	"time"
 )
 
 func TestNewServer(t *testing.T) {
@@ -65,7 +66,7 @@ func TestGRPCServer_Real(t *testing.T) {
 
 	mockOps := NewMockoperations(ctrl)
 	mockOps.EXPECT().
-		CreateFamilies([]string{"testFamily"}).
+		CreateFamilies(gomock.Any(), []string{"testFamily"}).
 		Return(nil)
 
 	// bind to a free port
