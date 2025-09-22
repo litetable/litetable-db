@@ -3,12 +3,14 @@ package grpc
 import (
 	"errors"
 	"fmt"
+	"net"
+	"time"
+
+	"github.com/litetable/litetable-db/internal/auth"
 	"github.com/litetable/litetable-db/pkg/proto"
 	"github.com/rs/zerolog/log"
 	grpc2 "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"net"
-	"time"
 )
 
 // Server implements the app.Dependency interface for a gRPC server
@@ -47,7 +49,10 @@ func NewServer(cfg *Config) (*Server, error) {
 	}
 
 	// Create a new gRPC server
-	srv := grpc2.NewServer()
+	srv := grpc2.NewServer(
+		// register the litetable authorization interceptor
+		grpc2.ChainUnaryInterceptor(auth.UserAuthorizationUnaryInterceptor),
+	)
 
 	l := &lt{
 		operations: cfg.Operations,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+
 	"github.com/litetable/litetable-db/internal/app"
 	v1 "github.com/litetable/litetable-db/internal/cdc_emitter/v1"
 	"github.com/litetable/litetable-db/internal/config"
@@ -10,12 +11,13 @@ import (
 	"github.com/litetable/litetable-db/internal/server/grpc"
 	"github.com/litetable/litetable-db/internal/shard_storage"
 
-	"github.com/litetable/litetable-db/internal/shard_storage/wal"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/litetable/litetable-db/internal/shard_storage/wal"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const (
