@@ -13,8 +13,8 @@ import (
 type ctxKey struct{}
 
 var (
-	authzKey     = "authorization"
-	principalKey ctxKey
+	authorizationKey = "authorization"
+	authKey          ctxKey
 )
 
 // UserAuthorizationUnaryInterceptor applies user authorization to unary gRPC calls and ensures
@@ -32,10 +32,9 @@ func UserAuthorizationUnaryInterceptor(ctx context.Context, req any, info *grpc.
 	handler grpc.UnaryHandler) (resp any, err error) {
 	// Read authz from context
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		fmt.Println(md)
-		if vals := md.Get(authzKey); len(vals) > 0 {
-			// put something derived into context for handlers
-			ctx = context.WithValue(ctx, principalKey, vals[0])
+		ctx, err = validateAuthorizationKey(ctx, md)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		fmt.Println("no metadata found")
@@ -45,4 +44,13 @@ func UserAuthorizationUnaryInterceptor(ctx context.Context, req any, info *grpc.
 
 	res, err := handler(ctx, req)
 	return res, err
+}
+
+func validateAuthorizationKey(ctx context.Context, md metadata.MD) (context.Context, error) {
+	if vals := md.Get(authorizationKey); len(vals) > 0 {
+		// put something derived into context for handlers
+		ctx = context.WithValue(ctx, authKey, vals[0])
+		return ctx, nil
+	}
+	return ctx, status.Errorf(codes.Unauthenticated, "missing authorization")
 }
