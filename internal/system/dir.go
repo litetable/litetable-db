@@ -4,27 +4,37 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 )
+
+const (
+	DefaultLitetableDir = ".litetable"
+)
+
+// GetLitetableDir returns the path to the LiteTable directory in the user's home directory.
+func GetLitetableDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	certDir := filepath.Join(homeDir, DefaultLitetableDir)
+
+	return certDir, nil
+}
 
 // DefaultDir returns the default system directory path based on the operating system.
 // This path is not user-configurable and is used for storing system-related data.
 func DefaultDir() string {
-	switch runtime.GOOS {
-	case "linux":
-		return "/var/lib/litetable/system"
-	case "darwin":
-		return "/usr/local/var/litetable/system"
-	case "windows":
-		return `C:\ProgramData\LiteTable\system`
-	default:
-		// Fallback for unknown OSes. Still not user-configurable.
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".litetable", "system")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// fallback to current working dir if somehow home is unavailable
+		return filepath.Join(".", ".litetable", "system")
 	}
+	return filepath.Join(home, ".litetable", "system")
 }
 
-func EnsureSecureSystemDirectory(dir string) (string, error) {
+func EnsureSecureSystemDirectory() (string, error) {
+	dir := DefaultDir()
+
 	// Create if missing
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("create system dir: %w", err)

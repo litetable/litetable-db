@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/litetable/litetable-db/internal/litetable"
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/server/grpc"
+	"github.com/litetable/litetable-db/internal/system"
 )
 
 const (
@@ -30,7 +30,7 @@ type Config struct {
 }
 
 func NewConfig() (*Config, error) {
-	liteTableDir, err := litetable.GetLitetableDir()
+	liteTableDir, err := system.GetLitetableDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get LiteTable directory: %w", err)
 	}

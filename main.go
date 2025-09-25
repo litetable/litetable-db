@@ -10,9 +10,9 @@ import (
 	"github.com/litetable/litetable-db/internal/server"
 	"github.com/litetable/litetable-db/internal/server/grpc"
 	"github.com/litetable/litetable-db/internal/shard_storage"
+	"github.com/litetable/litetable-db/internal/system"
 
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/litetable/litetable-db/internal/shard_storage/wal"
@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	defaultDir        = ".litetable"
 	defaultServerCert = "server.crt"
 	defaultServerKey  = "server.key"
 
@@ -51,14 +50,18 @@ func initialize() (*app.App, error) {
 
 	initLogging(cfg)
 
-	// load the defaults from the os.HomeDir
-	homeDir, err := os.UserHomeDir()
+	// ensure system directory exists
+	sysDir, err := system.EnsureSecureSystemDirectory()
 	if err != nil {
 		return nil, err
 	}
+	log.Info().Msgf("Using system directory: %s", sysDir)
 
 	// get the filepath
-	certDir := filepath.Join(homeDir, defaultDir)
+	mainDir, err := system.GetLitetableDir()
+	if err != nil {
+		return nil, err
+	}
 
 	// create a new CDC Stream Server
 	cdcStreamServer := v1.New()
@@ -66,7 +69,7 @@ func initialize() (*app.App, error) {
 
 	// create the WAL manager
 	walManager, err := wal.New(&wal.Config{
-		Path: certDir,
+		Path: mainDir,
 	})
 	if err != nil {
 		return nil, err
@@ -74,7 +77,7 @@ func initialize() (*app.App, error) {
 
 	// create a shard manager
 	shardManager, garbageCollector, err := shard_storage.New(&shard_storage.Config{
-		RootDir:          certDir,
+		RootDir:          mainDir,
 		FlushThreshold:   cfg.BackupTimer,
 		SnapshotTimer:    cfg.SnapshotTimer,
 		MaxSnapshotLimit: cfg.MaxSnapshotLimit,
